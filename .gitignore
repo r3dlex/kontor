@@ -8,3 +8,16 @@ erl_crash.dump
 *.beam
 /config/*.secret.exs
 .elixir_ls/
+
+# OMC state
+.omc/
+
+# Generated / artifacts
+test-results/
+coveralls.json
+
+# Frontend generated
+frontend/node_modules/
+frontend/coverage/
+frontend/test-results/
+frontend/playwright-report/

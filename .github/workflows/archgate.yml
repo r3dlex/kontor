@@ -1,0 +1,22 @@
+name: Archgate ADR Governance
+
+on:
+  pull_request:
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  archgate:
+    name: ADR Compliance Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Archgate
+        uses: archgate/check-action@v1
+        with:
+          comment-on-pr: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
