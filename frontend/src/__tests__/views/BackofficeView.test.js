@@ -23,7 +23,7 @@ vi.mock('@/stores/chat', () => ({
   })
 }))
 
-import BackofficeView from '@/views/BackofficeView.vue'
+import BackofficeView from '@/views/BackOfficeView.vue'
 
 function mountView() {
   return mount(BackofficeView, {
