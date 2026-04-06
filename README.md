@@ -59,29 +59,56 @@ frontend/src/
 
 ## Getting Started
 
-### Prerequisites
+### Option 1: Docker Compose (fastest)
 
+Docker Compose runs both the database and backend in containers, with the frontend dev server on your host.
+
+```bash
+cp .env.example .env
+# edit .env with your secrets
+docker compose up
+# app at http://localhost:4010
+```
+
+### Option 2: Native dev (with containerized Postgres only)
+
+Run the backend natively on your machine while Docker handles the database.
+
+Prerequisites:
 - Elixir 1.16+ and Erlang/OTP 26+
 - Node.js 20+
-- PostgreSQL 15+ with the pgvector extension
-
-### Backend
+- Docker (for PostgreSQL)
 
 ```bash
-mix deps.get
-mix ecto.setup
+cp .env.example .env
+docker compose --profile dev up   # starts only db on port 5442
+mix setup
 mix phx.server
+# app at http://localhost:4000
 ```
 
-### Frontend
+The Phoenix API runs on `http://localhost:4000`. The Vite dev server is available for frontend development at `http://localhost:5173` and proxies API requests automatically.
+
+## Distribution
+
+Pre-built Burrito binaries are available for download from GitHub Releases. These self-contained executables require no Elixir or Erlang installation.
+
+**Available platforms:**
+- macOS ARM (Apple Silicon)
+- macOS x86
+- Linux x86
+
+**Usage:**
 
 ```bash
-cd frontend
-npm install
-npm run dev
+./kontor-macos-arm start
+# or
+./kontor-linux-x86 start
 ```
 
-The Phoenix API runs on `http://localhost:4000`. The Vite dev server runs on `http://localhost:5173` and proxies API requests automatically.
+**Requirements:**
+- External PostgreSQL database (the binary does not bundle a database)
+- Environment variables configured via `.env` or system environment
 
 ## Running Tests
 
