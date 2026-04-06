@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: macos_arm
+            artifact_name: kontor-macos-arm
+          - os: macos-latest
+            target: macos_x86
+            artifact_name: kontor-macos-x86
+          - os: ubuntu-latest
+            target: linux_x86
+            artifact_name: kontor-linux-x86
+
+    env:
+      MIX_ENV: prod
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: "1.17"
+          otp-version: "27"
+
+      - name: Restore deps cache
+        uses: actions/cache@v4
+        with:
+          path: deps
+          key: ${{ runner.os }}-mix-prod-${{ hashFiles('**/mix.lock') }}
+          restore-keys: ${{ runner.os }}-mix-prod-
+
+      - name: Install dependencies
+        run: mix deps.get --only prod
+
+      - name: Build release
+        run: MIX_ENV=prod mix release
+        env:
+          BURRITO_TARGET: ${{ matrix.target }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: |
+            burrito_out/${{ matrix.target }}*
+          if-no-files-found: warn
+
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: build
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+          generate_release_notes: true
