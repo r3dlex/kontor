@@ -116,21 +116,32 @@ defmodule Kontor.AI.Pipeline do
     # Thread summarizer → update thread markdown
     if summary = Map.get(tier2, "thread_summarizer") do
       if md = Map.get(summary, "updated_thread_markdown") do
-        Kontor.Mail.update_thread_markdown(email.thread_id, md, tenant_id)
+        Kontor.AI.Sandbox.execute(
+          :write_thread_markdown,
+          %{thread_id: email.thread_id, markdown: md},
+          tenant_id
+        )
       end
     end
 
     # Scorer → update thread scores
     if scores = Map.get(tier2, "scorer") do
-      Kontor.Mail.update_thread_scores(email.thread_id, atomize_keys(scores), tenant_id)
+      Kontor.AI.Sandbox.execute(
+        :update_score,
+        %{thread_id: email.thread_id, scores: atomize_keys(scores)},
+        tenant_id
+      )
     end
 
     # Task extractor → create tasks
     if tasks_result = Map.get(tier2, "task_extractor") do
       tasks = if is_list(tasks_result), do: tasks_result, else: Map.get(tasks_result, "tasks", [])
       Enum.each(tasks, fn task_attrs ->
-        attrs = atomize_keys(task_attrs) |> Map.merge(%{thread_id: email.thread_id, email_id: email.id})
-        Kontor.Tasks.create_task(attrs, tenant_id)
+        attrs =
+          atomize_keys(task_attrs)
+          |> Map.merge(%{thread_id: email.thread_id, email_id: email.id})
+
+        Kontor.AI.Sandbox.execute(:create_task, attrs, tenant_id)
       end)
     end
 
@@ -187,14 +198,16 @@ defmodule Kontor.AI.Pipeline do
   end
 
   defp atomize_keys(map) when is_map(map) do
-    Map.new(map, fn
-      {k, v} when is_binary(k) ->
+    map
+    |> Enum.reduce(%{}, fn
+      {k, v}, acc when is_binary(k) ->
         try do
-          {String.to_existing_atom(k), v}
+          Map.put(acc, String.to_existing_atom(k), v)
         rescue
-          _ -> {String.to_atom(k), v}
+          ArgumentError -> acc
         end
-      {k, v} -> {k, v}
+      {k, v}, acc ->
+        Map.put(acc, k, v)
     end)
   end
   defp atomize_keys(other), do: other

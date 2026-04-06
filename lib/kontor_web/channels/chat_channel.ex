@@ -4,6 +4,7 @@ defmodule KontorWeb.ChatChannel do
 
   alias Kontor.Chat
   alias Kontor.AI.MinimaxClient
+  alias Kontor.AI.Sandbox
 
   @impl true
   def join("chat:" <> user_id, _params, socket) do
@@ -36,12 +37,26 @@ defmodule KontorWeb.ChatChannel do
     Task.start(fn ->
       case process_chat(content, ctx, tenant_id) do
         {:ok, response} ->
+          {broadcast_content, save_content} =
+            case route_response(response, tenant_id) do
+              {:action, action_name, confirmation} ->
+                msg = "Action #{action_name} completed: #{confirmation}"
+                {msg, msg}
+
+              {:action_error, action_name, reason} ->
+                msg = "Action #{action_name} failed: #{inspect(reason)}"
+                {msg, msg}
+
+              :plain_text ->
+                {response, response}
+            end
+
           {:ok, _} = Chat.save_message(
             %{session_id: session.id, user_id: user_id, role: :assistant,
-              content: response, view_context: ctx},
+              content: save_content, view_context: ctx},
             tenant_id
           )
-          Phoenix.PubSub.broadcast(Kontor.PubSub, topic, {:chat_response, response, session.id})
+          Phoenix.PubSub.broadcast(Kontor.PubSub, topic, {:chat_response, broadcast_content, session.id})
 
         {:error, reason} ->
           Logger.error("ChatChannel AI error: #{inspect(reason)}")
@@ -75,6 +90,30 @@ defmodule KontorWeb.ChatChannel do
     thread_markdown = load_thread_markdown(ctx, tenant_id)
     prompt = build_chat_prompt(content, ctx, thread_markdown)
     MinimaxClient.complete(prompt, tenant_id)
+  end
+
+  defp route_response(response, tenant_id) do
+    with {:ok, decoded} <- Jason.decode(response),
+         action_name when is_binary(action_name) <- Map.get(decoded, "action"),
+         params <- Map.get(decoded, "params", %{}) do
+      action_atom =
+        try do
+          String.to_existing_atom(action_name)
+        rescue
+          ArgumentError -> :unknown
+        end
+
+      if action_atom == :unknown do
+        {:action_error, action_name, :unknown_action}
+      else
+        case Sandbox.execute(action_atom, params, tenant_id, %{}) do
+          {:ok, result} -> {:action, action_name, inspect(result)}
+          {:error, reason} -> {:action_error, action_name, reason}
+        end
+      end
+    else
+      _ -> :plain_text
+    end
   end
 
   defp load_thread_markdown(%{"active_thread_id" => id}, tenant_id) when is_binary(id) do
