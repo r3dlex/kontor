@@ -10,21 +10,17 @@ defmodule KontorWeb.API.V1.AuthController do
   end
 
   def google(conn, %{"code" => code}) do
-    with {:ok, tokens} <- google_client().exchange_code(code),
-         {:ok, profile} <- google_client().get_profile(access_token(tokens)),
-         {:ok, user} <- accounts_module().upsert_user_from_google(profile, tokens) do
-      {:ok, jwt} = KontorWeb.Auth.generate_token(user.id, user.tenant_id)
-      json(conn, %{token: jwt, user: %{id: user.id, email: user.email, name: user.name}})
-    else
-      {:error, reason} ->
-        conn |> put_status(:bad_request) |> json(%{error: inspect(reason)})
-    end
+    handle_oauth_callback(conn, google_client(), code, &accounts_module().upsert_user_from_google/2)
   end
 
   def microsoft(conn, %{"code" => code}) do
-    with {:ok, tokens} <- microsoft_client().exchange_code(code),
-         {:ok, profile} <- microsoft_client().get_profile(access_token(tokens)),
-         {:ok, user} <- accounts_module().upsert_user_from_microsoft(profile, tokens) do
+    handle_oauth_callback(conn, microsoft_client(), code, &accounts_module().upsert_user_from_microsoft/2)
+  end
+
+  defp handle_oauth_callback(conn, client, code, upsert_fn) do
+    with {:ok, tokens} <- client.exchange_code(code),
+         {:ok, profile} <- client.get_profile(access_token(tokens)),
+         {:ok, user} <- upsert_fn.(profile, tokens) do
       {:ok, jwt} = KontorWeb.Auth.generate_token(user.id, user.tenant_id)
       json(conn, %{token: jwt, user: %{id: user.id, email: user.email, name: user.name}})
     else
