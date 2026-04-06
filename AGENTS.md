@@ -96,7 +96,8 @@ src-tauri/             # Tauri desktop wrapper
 #### 5. AI Sandbox
 - **Locus**: Elixir backend is the sandbox
 - **LLM isolation**: LLM never accesses network directly
-- **Validation**: Allowlist GenServer validates every LLM-proposed action
+- **Validation**: Allowlist GenServer (Sandbox.execute/4) validates all LLM-proposed actions from both pipeline writes and chat actions
+- **Atom exhaustion protection**: Unknown LLM keys are dropped, never converted to atoms via String.to_atom/1
 - **Frontend integration**: Vue declares available_actions per view; backend validates against allowlist
 - **Permitted Actions**: Read emails (tenant-scoped), write/update thread markdowns, update scores, draft replies, create/update calendar entries, manage skills (tenant-scoped), create/update tasks, manage folder organization
 
