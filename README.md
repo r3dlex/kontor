@@ -67,7 +67,7 @@ Docker Compose runs both the database and backend in containers, with the fronte
 cp .env.example .env
 # edit .env with your secrets
 docker compose up
-# app at http://localhost:4010
+# app at http://localhost:4737
 ```
 
 ### Option 2: Native dev (with containerized Postgres only)
@@ -81,13 +81,13 @@ Prerequisites:
 
 ```bash
 cp .env.example .env
-docker compose --profile dev up   # starts only db on port 5442
+docker compose --profile dev up   # starts only db on port 5437
 mix setup
 mix phx.server
-# app at http://localhost:4000
+# app at http://localhost:4737
 ```
 
-The Phoenix API runs on `http://localhost:4000`. The Vite dev server is available for frontend development at `http://localhost:5173` and proxies API requests automatically.
+The Phoenix API runs on `http://localhost:4737`. The Vite dev server is available for frontend development at `http://localhost:5173` and proxies API requests automatically.
 
 ## Distribution
 

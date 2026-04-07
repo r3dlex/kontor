@@ -352,7 +352,7 @@ mix ecto.migrate
 # Start Phoenix server
 mix phx.server
 ```
-Server runs on `http://localhost:4000`
+Server runs on `http://localhost:4737`
 
 ### Frontend Setup
 ```bash

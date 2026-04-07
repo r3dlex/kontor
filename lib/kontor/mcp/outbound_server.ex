@@ -7,7 +7,7 @@ defmodule Kontor.MCP.OutboundServer do
   use GenServer
   require Logger
 
-  @port 9090
+  @port 9737
 
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)

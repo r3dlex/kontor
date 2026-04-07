@@ -7,7 +7,7 @@ defmodule Kontor.Auth.Google do
   # 1-arg convenience: uses redirect_uri from config
   def exchange_code(code) do
     redirect_uri = Application.get_env(:kontor, :google_oauth, [])[:redirect_uri] ||
-      "http://localhost:4000/api/v1/auth/google"
+      "http://localhost:4737/api/v1/auth/google"
     exchange_code(code, redirect_uri)
   end
 

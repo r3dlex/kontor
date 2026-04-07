@@ -10,7 +10,7 @@ config :kontor, Kontor.Repo,
   pool_size: 10
 
 config :kontor, KontorWeb.Endpoint,
-  http: [ip: {127, 0, 0, 1}, port: 4000],
+  http: [ip: {127, 0, 0, 1}, port: 4737],
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
