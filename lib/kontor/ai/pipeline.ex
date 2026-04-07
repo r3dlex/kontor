@@ -20,12 +20,8 @@ defmodule Kontor.AI.Pipeline do
   def start_link(opts), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
 
   # Called from poller with tenant_id already on the email struct
-  def process_email(%{tenant_id: tenant_id} = email) do
-    GenServer.cast(__MODULE__, {:process_email, email, tenant_id})
-  end
-
-  def process_email(email, tenant_id) do
-    GenServer.cast(__MODULE__, {:process_email, email, tenant_id})
+  def process_email(%{tenant_id: tenant_id} = email, opts \\ []) do
+    GenServer.cast(__MODULE__, {:process_email, email, tenant_id, opts})
   end
 
   def run_skill(skill_name, input, tenant_id) do
@@ -46,14 +42,14 @@ defmodule Kontor.AI.Pipeline do
   def init(_opts), do: {:ok, %{}}
 
   @impl true
-  def handle_cast({:process_email, email, tenant_id}, state) do
-    Task.start(fn -> do_process(email, tenant_id) end)
+  def handle_cast({:process_email, email, tenant_id, opts}, state) do
+    Task.start(fn -> do_process(email, tenant_id, opts) end)
     {:noreply, state}
   end
 
-  defp do_process(email, tenant_id) do
+  defp do_process(email, tenant_id, opts \\ []) do
     with {:ok, tier1} <- run_classifier(email, tenant_id),
-         {:ok, tier2} <- run_tier2(email, tier1, tenant_id) do
+         {:ok, tier2} <- run_tier2(email, tier1, tenant_id, opts) do
       post_process(email, tier1, tier2, tenant_id)
       {:ok, %{tier1: tier1, tier2: tier2, email_id: email.id}}
     end
@@ -77,8 +73,14 @@ defmodule Kontor.AI.Pipeline do
     end
   end
 
-  defp run_tier2(email, tier1, tenant_id) do
-    skill_names = Map.get(tier1, "tier2_skills", [])
+  defp run_tier2(email, tier1, tenant_id, opts \\ []) do
+    cutoff_months = Keyword.get(opts, :task_age_cutoff_months, 3)
+    cutoff_dt = DateTime.add(DateTime.utc_now(), -cutoff_months * 30 * 24 * 3600, :second)
+    skill_names = if email.received_at && DateTime.compare(email.received_at, cutoff_dt) == :lt do
+      tier1["tier2_skills"] |> Enum.reject(&(&1 == "task_extractor"))
+    else
+      tier1["tier2_skills"]
+    end
     context_depth = Map.get(tier1, "context_depth", "full_body")
 
     results =
@@ -154,7 +156,8 @@ defmodule Kontor.AI.Pipeline do
       if _contact = Map.get(tier2, "contact_organizer"), do: :ok
 
       # Atomic CAS: mark thread as processed (process-once guarantee)
-      case Kontor.Mail.mark_thread_processed(email.thread_id, tenant_id) do
+      # Skip CAS if thread_id is nil (Ecto forbids == nil in queries)
+      case (if is_nil(email.thread_id), do: {:ok, :already_processed}, else: Kontor.Mail.mark_thread_processed(email.thread_id, tenant_id)) do
         {:ok, :updated} ->
           # Won the race — conditionally nil out body based on mailbox.copy_emails
           email_with_mailbox = Repo.preload(email, :mailbox)

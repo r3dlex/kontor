@@ -57,7 +57,7 @@ defmodule Kontor.AI.PipelineTest do
   # process_email/2 — cast, does not crash
   # ---------------------------------------------------------------------------
 
-  describe "process_email/2" do
+  describe "process_email/1" do
     test "casts without crashing for a well-formed email struct" do
       email = %{
         id: Ecto.UUID.generate(),
@@ -71,7 +71,7 @@ defmodule Kontor.AI.PipelineTest do
       }
 
       # process_email is a GenServer.cast — it should not raise
-      assert :ok = Pipeline.process_email(email, @tenant)
+      assert :ok = Pipeline.process_email(email)
     end
 
     test "casts without crashing when body is nil" do
@@ -86,7 +86,7 @@ defmodule Kontor.AI.PipelineTest do
         body: nil
       }
 
-      assert :ok = Pipeline.process_email(email, @tenant)
+      assert :ok = Pipeline.process_email(email)
     end
   end
 

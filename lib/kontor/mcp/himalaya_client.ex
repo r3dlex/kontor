@@ -9,8 +9,8 @@ defmodule Kontor.MCP.HimalayaClient do
 
   # Public API
 
-  def list_emails(mailbox, folder \\ "INBOX", limit \\ 50) do
-    call({:list_emails, mailbox, folder, limit})
+  def list_emails(mailbox, folder \\ "INBOX", limit \\ 50, sort \\ "date:desc") do
+    call({:list_emails, mailbox, folder, limit, sort})
   end
 
   def get_email(mailbox, message_id) do
@@ -38,6 +38,23 @@ defmodule Kontor.MCP.HimalayaClient do
   @impl true
   def init(_opts) do
     {:ok, %{}}
+  end
+
+  @impl true
+  def handle_call({:list_emails, mailbox, folder, limit, sort}, _from, state) do
+    params = %{mailbox: mailbox, folder: folder, limit: limit, sort: sort}
+    case mcp_call("himalaya/list_emails", params) do
+      {:ok, emails} ->
+        {:reply, {:ok, emails}, state}
+      {:error, reason} ->
+        # Fallback: retry without sort in case server doesn't support it
+        Logger.warning("HimalayaClient: sort param rejected (#{inspect(reason)}), retrying without sort")
+        params_no_sort = Map.delete(params, :sort)
+        case mcp_call("himalaya/list_emails", params_no_sort) do
+          {:ok, emails} -> {:reply, {:ok, emails}, state}
+          {:error, reason2} -> {:reply, {:error, reason2}, state}
+        end
+    end
   end
 
   @impl true

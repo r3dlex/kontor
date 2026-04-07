@@ -20,6 +20,7 @@ defmodule Kontor.Mail.MarkdownBackfillWorker do
 
   alias Kontor.{Repo, Mail}
   alias Kontor.Mail.Email
+  alias Kontor.Accounts.Mailbox
 
   @batch_size 50
 
@@ -60,7 +61,9 @@ defmodule Kontor.Mail.MarkdownBackfillWorker do
         Mail.mark_thread_processed(thread.thread_id, tenant_id)
 
       email ->
-        Kontor.AI.Pipeline.process_email(email)
+        mailbox = Repo.get(Mailbox, email.mailbox_id)
+        cutoff = (mailbox && mailbox.task_age_cutoff_months) || 3
+        Kontor.AI.Pipeline.process_email(email, task_age_cutoff_months: cutoff)
     end
   end
 end

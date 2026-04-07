@@ -14,6 +14,7 @@ defmodule Kontor.Accounts.Mailbox do
     field :task_age_cutoff_months, :integer, default: 3
     field :read_only, :boolean, default: false
     field :copy_emails, :boolean, default: false
+    field :active, :boolean, default: true
 
     belongs_to :user, Kontor.Accounts.User
     has_one :credential, Kontor.Accounts.Credential
@@ -25,7 +26,7 @@ defmodule Kontor.Accounts.Mailbox do
   def changeset(mailbox, attrs) do
     mailbox
     |> cast(attrs, [:tenant_id, :user_id, :provider, :email_address, :himalaya_config,
-                    :polling_interval_seconds, :task_age_cutoff_months, :read_only, :copy_emails])
+                    :polling_interval_seconds, :task_age_cutoff_months, :read_only, :copy_emails, :active])
     |> validate_required([:tenant_id, :user_id, :provider, :email_address])
     |> validate_inclusion(:provider, [:google, :microsoft])
     |> unique_constraint(:email_address, name: :mailboxes_tenant_id_email_address_index)
