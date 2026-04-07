@@ -2,6 +2,7 @@ defmodule Kontor.Tasks do
   @moduledoc "Context module for task management and Asana sync."
 
   import Ecto.Query
+  require Logger
   alias Kontor.Repo
   alias Kontor.Tasks.Task
 
@@ -30,6 +31,7 @@ defmodule Kontor.Tasks do
 
     with {:ok, task} <- result do
       broadcast_task_created(task)
+      maybe_log_low_confidence(task)
       maybe_sync_asana(task)
       {:ok, task}
     end
@@ -87,6 +89,13 @@ defmodule Kontor.Tasks do
 
   defp broadcast_task_deleted(task) do
     Phoenix.PubSub.broadcast(Kontor.PubSub, "tasks:#{task.tenant_id}", {:task_deleted, task})
+  end
+
+  defp maybe_log_low_confidence(%Task{confidence: c, id: id}) do
+    threshold_low = Application.get_env(:kontor, :tasks)[:auto_confirm_threshold_low]
+    if c < threshold_low do
+      Logger.debug("Task #{id} has low confidence (#{c}) — logged only, no user action required")
+    end
   end
 
   defp maybe_sync_asana(%Task{status: :confirmed, confidence: c} = task) do

@@ -57,7 +57,8 @@ defmodule KontorWeb.API.V1.MailboxController do
       email_address: mb.email_address,
       polling_interval_seconds: mb.polling_interval_seconds,
       task_age_cutoff_months: mb.task_age_cutoff_months,
-      read_only: mb.read_only
+      read_only: mb.read_only,
+      copy_emails: mb.copy_emails
     }
   end
 end

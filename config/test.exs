@@ -21,3 +21,6 @@ config :kontor, Oban, testing: :inline
 config :kontor, :google_client, Kontor.Auth.GoogleMock
 config :kontor, :microsoft_client, Kontor.Auth.MicrosoftMock
 config :kontor, :accounts_module, Kontor.Accounts.Mock
+
+config :kontor, :skills_path,
+  shared: System.tmp_dir!()

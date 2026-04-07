@@ -15,6 +15,7 @@ defmodule Kontor.Mail.Thread do
     field :score_authority, :float, default: 0.0
     field :score_momentum, :float, default: 0.0
     field :composite_score, :float, default: 0.0
+    field :markdown_stale, :boolean, default: true
 
     timestamps(type: :utc_datetime)
   end
@@ -23,7 +24,7 @@ defmodule Kontor.Mail.Thread do
     thread
     |> cast(attrs, [:tenant_id, :thread_id, :markdown_content, :last_updated,
                     :score_urgency, :score_action, :score_authority,
-                    :score_momentum, :composite_score])
+                    :score_momentum, :composite_score, :markdown_stale])
     |> validate_required([:tenant_id, :thread_id])
     |> unique_constraint([:tenant_id, :thread_id])
   end

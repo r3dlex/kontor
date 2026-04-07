@@ -76,9 +76,6 @@ defmodule Kontor.AI.SkillLoaderTest do
 
       assert {:ok, loaded} = SkillLoader.load_skill(skill.name, "shared")
       assert loaded.frontmatter["name"] == unique_name
-
-      # Cleanup
-      File.rm(Path.join("priv/skills/shared", "#{skill.name}.md"))
     end
 
     test "overwrites existing file with updated content" do
@@ -99,9 +96,6 @@ defmodule Kontor.AI.SkillLoaderTest do
 
       {:ok, loaded} = SkillLoader.load_skill(skill.name, "shared")
       assert String.contains?(loaded.body, "Updated")
-
-      # Cleanup
-      File.rm(Path.join("priv/skills/shared", "#{skill.name}.md"))
     end
   end
 end

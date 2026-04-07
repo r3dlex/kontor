@@ -27,6 +27,10 @@ defmodule Kontor.MCP.OutboundServer.Router do
 
   require Logger
 
+  alias Kontor.Accounts
+  alias Kontor.Automations
+  alias Kontor.Documents
+
   plug Plug.Parsers, parsers: [:json], json_decoder: Jason
   plug :match
   plug :dispatch
@@ -102,9 +106,11 @@ defmodule Kontor.MCP.OutboundServer.Router do
   end
 
   # Documents namespace
-  defp dispatch_method("documents/push", %{"type" => type, "content" => content}, tenant_id) do
-    Logger.info("Document pushed via MCP: type=#{type}, tenant=#{tenant_id}")
-    {:ok, %{received: true, type: type, length: String.length(content)}}
+  defp dispatch_method("documents/push", %{"type" => type} = params, tenant_id) do
+    case Documents.push_document(tenant_id, type, params) do
+      {:ok, doc} -> {:ok, %{id: doc.id, type: doc.type}}
+      {:error, changeset} -> {:error, changeset}
+    end
   end
 
   # Configuration namespace
@@ -114,8 +120,10 @@ defmodule Kontor.MCP.OutboundServer.Router do
   end
 
   defp dispatch_method("config/set", params, tenant_id) do
-    Logger.info("Config set via MCP: #{inspect(params)}, tenant=#{tenant_id}")
-    {:ok, %{updated: true}}
+    case Accounts.upsert_preferences(tenant_id, params) do
+      {:ok, prefs} -> {:ok, %{updated: true, tenant_id: prefs.tenant_id}}
+      {:error, changeset} -> {:error, changeset}
+    end
   end
 
   # Skills namespace
@@ -141,8 +149,15 @@ defmodule Kontor.MCP.OutboundServer.Router do
   end
 
   defp dispatch_method("automations/register_webhook", params, tenant_id) do
-    Logger.info("Webhook registered via MCP: #{inspect(params)}, tenant=#{tenant_id}")
-    {:ok, %{registered: true}}
+    case Automations.register_webhook(tenant_id, params) do
+      {:ok, webhook} -> {:ok, %{id: webhook.id, url: webhook.url}}
+      {:error, changeset} -> {:error, changeset}
+    end
+  end
+
+  defp dispatch_method("automations/list_webhooks", _params, tenant_id) do
+    webhooks = Automations.list_webhooks(tenant_id)
+    {:ok, Enum.map(webhooks, &%{id: &1.id, url: &1.url, event_types: &1.event_types, active: &1.active})}
   end
 
   defp dispatch_method(method, _params, _tenant_id) do

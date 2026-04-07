@@ -15,6 +15,7 @@ defmodule Kontor.AI.Pipeline do
   require Logger
 
   alias Kontor.AI.{SkillLoader, MinimaxClient}
+  alias Kontor.Repo
 
   def start_link(opts), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
 
@@ -113,43 +114,64 @@ defmodule Kontor.AI.Pipeline do
 
   # Post-process tier2 results: persist tasks, thread markdown, scores
   defp post_process(email, _tier1, tier2, tenant_id) do
-    # Thread summarizer → update thread markdown
-    if summary = Map.get(tier2, "thread_summarizer") do
-      if md = Map.get(summary, "updated_thread_markdown") do
+    try do
+      # Thread summarizer → update thread markdown
+      if summary = Map.get(tier2, "thread_summarizer") do
+        if md = Map.get(summary, "updated_thread_markdown") do
+          Kontor.AI.Sandbox.execute(
+            :write_thread_markdown,
+            %{thread_id: email.thread_id, content: md},
+            tenant_id
+          )
+        end
+      end
+
+      # Scorer → update thread scores
+      if scores = Map.get(tier2, "scorer") do
         Kontor.AI.Sandbox.execute(
-          :write_thread_markdown,
-          %{thread_id: email.thread_id, markdown: md},
+          :update_score,
+          %{thread_id: email.thread_id, scores: atomize_keys(scores)},
           tenant_id
         )
       end
+
+      # Task extractor → create tasks
+      if tasks_result = Map.get(tier2, "task_extractor") do
+        tasks = if is_list(tasks_result), do: tasks_result, else: Map.get(tasks_result, "tasks", [])
+        Enum.each(tasks, fn task_attrs ->
+          attrs =
+            atomize_keys(task_attrs)
+            |> Map.merge(%{thread_id: email.thread_id, email_id: email.id})
+
+          Kontor.AI.Sandbox.execute(:create_task, attrs, tenant_id)
+        end)
+      end
+
+      # Reply drafter → store draft content in task if it exists
+      if _draft = Map.get(tier2, "reply_drafter"), do: :ok
+
+      # Contact organizer → run in background
+      if _contact = Map.get(tier2, "contact_organizer"), do: :ok
+
+      # Atomic CAS: mark thread as processed (process-once guarantee)
+      case Kontor.Mail.mark_thread_processed(email.thread_id, tenant_id) do
+        {:ok, :updated} ->
+          # Won the race — conditionally nil out body based on mailbox.copy_emails
+          email_with_mailbox = Repo.preload(email, :mailbox)
+          if email_with_mailbox.mailbox && !email_with_mailbox.mailbox.copy_emails do
+            Kontor.Mail.clear_email_body(email_with_mailbox)
+          end
+
+        {:ok, :already_processed} ->
+          # Another process won — skip body cleanup
+          :ok
+      end
+    rescue
+      e ->
+        Logger.error("Pipeline post_process failed for email #{email.id}: #{inspect(e)}")
+        # Body remains intact; markdown_stale stays true for MarkdownBackfillWorker retry
+        :ok
     end
-
-    # Scorer → update thread scores
-    if scores = Map.get(tier2, "scorer") do
-      Kontor.AI.Sandbox.execute(
-        :update_score,
-        %{thread_id: email.thread_id, scores: atomize_keys(scores)},
-        tenant_id
-      )
-    end
-
-    # Task extractor → create tasks
-    if tasks_result = Map.get(tier2, "task_extractor") do
-      tasks = if is_list(tasks_result), do: tasks_result, else: Map.get(tasks_result, "tasks", [])
-      Enum.each(tasks, fn task_attrs ->
-        attrs =
-          atomize_keys(task_attrs)
-          |> Map.merge(%{thread_id: email.thread_id, email_id: email.id})
-
-        Kontor.AI.Sandbox.execute(:create_task, attrs, tenant_id)
-      end)
-    end
-
-    # Reply drafter → store draft content in task if it exists
-    if _draft = Map.get(tier2, "reply_drafter"), do: :ok
-
-    # Contact organizer → run in background
-    if _contact = Map.get(tier2, "contact_organizer"), do: :ok
   end
 
   defp fire_webhook(%{frontmatter: %{"webhook" => url}}, result, _tenant_id) when is_binary(url) and url != "" do
@@ -163,7 +185,12 @@ defmodule Kontor.AI.Pipeline do
   defp fire_webhook(_skill, _result, _tenant_id), do: :ok
 
   defp build_email_input(email, "headers_only") do
-    %{subject: email.subject, sender: email.sender, recipients: email.recipients}
+    %{
+      subject: email.subject,
+      sender: email.sender,
+      recipients: email.recipients,
+      prior_thread_samples: fetch_prior_thread_samples(email)
+    }
   end
 
   defp build_email_input(email, "first_100_chars") do
@@ -171,12 +198,31 @@ defmodule Kontor.AI.Pipeline do
       subject: email.subject,
       sender: email.sender,
       recipients: email.recipients,
-      body_preview: String.slice(email.body || "", 0, 100)
+      body_preview: String.slice(email.body || "", 0, 100),
+      prior_thread_samples: fetch_prior_thread_samples(email)
     }
   end
 
   defp build_email_input(email, _full) do
-    %{subject: email.subject, sender: email.sender, recipients: email.recipients, body: email.body}
+    %{
+      subject: email.subject,
+      sender: email.sender,
+      recipients: email.recipients,
+      body: email.body,
+      prior_thread_samples: fetch_prior_thread_samples(email)
+    }
+  end
+
+  defp fetch_prior_thread_samples(email) do
+    Kontor.Mail.sample_thread_emails(email.thread_id, email.tenant_id, 3)
+    |> Enum.filter(fn e -> e.id != email.id end)
+    |> Enum.map(fn e ->
+      %{
+        subject: e.subject,
+        sender: e.sender,
+        body_preview: String.slice(e.body || "", 0, 200)
+      }
+    end)
   end
 
   defp build_prompt(%{body: template, frontmatter: fm}, input) do

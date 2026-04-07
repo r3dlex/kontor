@@ -84,9 +84,6 @@ defmodule Kontor.AI.SkillsTest do
       assert {:ok, skill} = Skills.create_skill(attrs, @tenant)
       assert skill.tenant_id == @tenant
       assert skill.name == name
-
-      # Cleanup filesystem
-      File.rm("priv/skills/shared/#{name}.md")
     end
 
     test "returns error changeset for invalid data (missing required fields)" do

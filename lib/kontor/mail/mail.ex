@@ -5,6 +5,8 @@ defmodule Kontor.Mail do
   alias Kontor.Repo
   alias Kontor.Mail.{Email, Thread, ScheduledSend}
 
+  require Logger
+
   # --- Emails ---
 
   def get_email(id, tenant_id) do
@@ -121,6 +123,54 @@ defmodule Kontor.Mail do
   def manage_folder(_params, _tenant_id) do
     # Delegated to Himalaya MCP
     {:ok, :delegated}
+  end
+
+  # --- Email Reference Storage helpers ---
+
+  @doc """
+  Atomic CAS: sets markdown_stale = false on the thread only if it is currently true.
+  Returns {:ok, :updated} when this process won the race, {:ok, :already_processed}
+  when another process already cleared the flag.
+  """
+  def mark_thread_processed(thread_id, tenant_id) do
+    {count, _} =
+      Repo.update_all(
+        from(t in Thread,
+          where: t.thread_id == ^thread_id and t.tenant_id == ^tenant_id and t.markdown_stale == true
+        ),
+        set: [markdown_stale: false]
+      )
+
+    if count == 1 do
+      {:ok, :updated}
+    else
+      {:ok, :already_processed}
+    end
+  end
+
+  @doc """
+  Nils out the body and raw_headers of an email after successful pipeline processing,
+  and sets processed_at as an audit timestamp.
+  """
+  def clear_email_body(%Email{} = email) do
+    email
+    |> Email.changeset(%{body: nil, raw_headers: nil, processed_at: DateTime.utc_now() |> DateTime.truncate(:second)})
+    |> Repo.update()
+  end
+
+  @doc """
+  Returns threads with markdown_stale = true for a tenant, ordered oldest-first.
+  Accepts an optional :limit keyword (default 50).
+  """
+  def stale_threads(tenant_id, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 50)
+
+    Repo.all(
+      from t in Thread,
+      where: t.tenant_id == ^tenant_id and t.markdown_stale == true,
+      order_by: [asc: t.updated_at],
+      limit: ^limit
+    )
   end
 
   defp atomize(map) when is_map(map) do
