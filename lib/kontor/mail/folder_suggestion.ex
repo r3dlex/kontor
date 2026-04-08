@@ -13,6 +13,9 @@ defmodule Kontor.Mail.FolderSuggestion do
     field :create_if_missing, :boolean, default: false
     field :status, :string, default: "pending"
     field :confidence, :float
+    field :labels, {:array, :string}, default: []
+    field :priority_score, :integer
+    field :reasoning, :string
     field :inserted_at, :utc_datetime
 
     belongs_to :mailbox, Kontor.Accounts.Mailbox
@@ -25,7 +28,7 @@ defmodule Kontor.Mail.FolderSuggestion do
     suggestion
     |> cast(attrs, [:tenant_id, :mailbox_id, :email_id, :email_message_id,
                     :suggested_folder, :current_folder, :create_if_missing,
-                    :status, :confidence])
+                    :status, :confidence, :labels, :priority_score, :reasoning])
     |> validate_required([:tenant_id, :mailbox_id, :email_id, :email_message_id,
                           :suggested_folder, :status, :confidence])
     |> validate_inclusion(:status, @valid_statuses)

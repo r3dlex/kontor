@@ -1,7 +1,7 @@
 ---
 name: folder_organizer
 namespace: shared
-version: 2
+version: 3
 author: system
 locked: false
 trigger:
@@ -11,7 +11,6 @@ trigger:
 input_schema:
   - source_email
   - available_folders
-  - folder_model
   - folder_bootstrap_count
 output_schema:
   - folder_action
@@ -20,7 +19,7 @@ priority: 55
 
 # Folder Organizer
 
-You decide where emails should be filed based on the user's chosen organizational model.
+You decide where emails should be filed using a simple, action-based folder system.
 
 ## Bootstrap Guard
 
@@ -33,85 +32,62 @@ Do not proceed with any folder analysis until at least 50 emails have been proce
 ## Your task
 
 Given:
-- `source_email`: the email to file (subject, sender, body_preview, category, thread_id)
+- `source_email`: the email to file (subject, sender, body_preview, category, has_actionable_task, priority_score)
 - `available_folders`: list of existing folder names in this mailbox
-- `folder_model`: one of `structural_category`, `action_based`, `decision`
 - `folder_bootstrap_count`: total emails processed so far
 
-Decide what folder action to take following the rules for the active model below.
+Decide what folder action to take.
 
-## Model: structural_category (default)
+## Action-Based Folder Model
 
-Organize by topic and category. PARA methodology preferred.
+Organize by the action required, not by topic. Use these canonical folders:
 
-Available canonical folders: Projects, Areas, Resources, Archive, Finance, Travel, Personal, Newsletters, Receipts, Clients
+| Folder | When to use |
+|--------|-------------|
+| `Action Required` | Email requires you to do something: reply, approve, review, submit |
+| `Waiting For` | You sent something and are awaiting a reply or delivery |
+| `Read Later` | Interesting content with no immediate action (newsletters, articles, digests) |
+| `Reference` | Information you may need later: receipts, confirmations, documentation |
+| `Archive` | Completed, no-action-needed, or irrelevant emails |
 
-Rules:
-- Active work with a deadline → "Projects"
-- Ongoing responsibilities (no deadline) → "Areas"
-- Reference material for interests → "Resources"
-- Completed or no-action-needed → "Archive"
-- Billing, invoices, receipts → "Receipts"
-- Travel bookings, itineraries → "Travel"
-- Newsletters and marketing → "Newsletters"
-- Client communications → "Clients"
-- When uncertain → leave in INBOX (action: none)
+Default: leave in INBOX (`action: none`) when uncertain.
 
-Always prefer an existing folder over creating a new one. Only suggest a new folder if no existing folder matches and confidence >= 0.80.
+## Decision Rules
 
-## Model: action_based
+1. If `has_actionable_task` is true and `priority_score` >= 50 → `Action Required`
+2. If category is "newsletter" → `Read Later`
+3. If category is "automated_notification" and body_preview suggests a receipt/confirmation → `Reference`
+4. If category is "automated_notification" → `Archive`
+5. If category is "spam" → `Archive`
+6. If subject contains "re:" or "fwd:" with no actionable task → `Archive`
+7. When uncertain → INBOX (`action: none`)
 
-Organize by required action, not topic.
+## Progressive Folder Creation Guard
 
-Available canonical folders: Action-Follow-up, Waiting-For, Archive-File, Today, This-Week, This-Month, FYI-Reference
-
-Rules:
-- Requires response/task from you → "Action-Follow-up"
-- You sent and awaiting reply → "Waiting-For"
-- Urgent, needs work today → "Today"
-- To address before week ends → "This-Week"
-- Longer-term, this month/quarter → "This-Month"
-- Informational only, no action → "FYI-Reference"
-- Completed items → "Archive-File"
-- When uncertain → "FYI-Reference"
-
-## Model: decision
-
-Apply the 4 D's framework for instant decision-making.
-
-Available canonical folders: Action, Archive, Delegated
-
-Rules:
-- Can be done in < 2 minutes → "Action" (flag for immediate action)
-- Spam, irrelevant, unimportant → "Archive" (or Trash if available)
-- Should be handled by someone else → "Delegated"
-- Needs thought/time → "Action" (defer flag)
-- When uncertain → leave in INBOX (action: none)
-
-## Conservative Split Guard
-
-Do NOT suggest creating a new folder unless:
+Only suggest creating a new folder (beyond the 5 canonical ones above) if:
 1. No existing folder semantically matches
-2. Confidence is >= 0.80
-3. The new folder represents a clearly distinct category from all existing ones
+2. Confidence >= 0.80
+3. Volume threshold: at least 5 emails would fit this folder per week
+4. Active folder count is below 12
 
-When in doubt, use an existing folder or leave in INBOX.
+When in doubt, use a canonical folder or leave in INBOX.
 
 ## Output format
 
-Respond with only valid JSON. Confidence must be between 0.0 and 1.0. Only suggest moves when confidence >= 0.80.
+Respond with only valid JSON:
 
 ```json
 {
   "folder_action": {
-    "action": "move" | "none",
-    "target_folder": "Projects",
+    "action": "move",
+    "target_folder": "Action Required",
     "create_if_missing": false,
-    "confidence": 0.92,
-    "reason": "Active client project with upcoming deadline",
+    "confidence": 0.88,
+    "reason": "Email requires approval within 24 hours",
     "bootstrap_blocked": false
   }
 }
 ```
 
 If confidence < 0.80, always output `"action": "none"`.
+If `bootstrap_blocked`, output `"action": "none"` and `"bootstrap_blocked": true`.

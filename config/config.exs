@@ -24,7 +24,9 @@ config :kontor, Oban,
     {Oban.Plugins.Cron,
      crontab: [
        {"*/5 * * * *", Kontor.Mail.MarkdownBackfillWorker},
-       {"0 23 * * *", Kontor.Mail.FolderOrganizerWorker}
+       {"0 23 * * *", Kontor.Mail.FolderOrganizerWorker},
+       {"@daily", Kontor.Mail.SenderRulePromotionWorker},
+       {"@daily", Kontor.Mail.NewsletterEngagementWorker}
      ]}
   ],
   queues: [

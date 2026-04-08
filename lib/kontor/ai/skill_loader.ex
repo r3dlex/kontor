@@ -41,7 +41,11 @@ defmodule Kontor.AI.SkillLoader do
   @impl true
   def handle_call({:load_skill, name, namespace}, _from, state) do
     result = case File.read(skill_path(namespace, name)) do
-      {:ok, content} -> {:ok, parse_skill(content)}
+      {:ok, content} ->
+        case parse_skill(content) do
+          {:error, :not_found} -> {:error, :not_found}
+          skill -> {:ok, skill}
+        end
       {:error, _} -> {:error, :not_found}
     end
     {:reply, result, state}
@@ -93,7 +97,12 @@ defmodule Kontor.AI.SkillLoader do
     case String.split(content, "---\n", parts: 3) do
       [_, yaml_str, body] ->
         case YamlElixir.read_from_string(yaml_str) do
-          {:ok, fm} -> %{frontmatter: fm, body: body, raw: content}
+          {:ok, fm} ->
+            if Map.get(fm, "active") == false do
+              {:error, :not_found}
+            else
+              %{frontmatter: fm, body: body, raw: content}
+            end
           _ -> %{frontmatter: %{}, body: content, raw: content}
         end
       _ ->

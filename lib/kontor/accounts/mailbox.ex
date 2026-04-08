@@ -18,6 +18,7 @@ defmodule Kontor.Accounts.Mailbox do
     field :folder_model, :string, default: "structural_category"
     field :folder_bootstrap_count, :integer, default: 0
     field :folder_model_locked_at, :utc_datetime
+    field :folder_creation_guard, :map
 
     belongs_to :user, Kontor.Accounts.User
     has_one :credential, Kontor.Accounts.Credential
@@ -30,7 +31,7 @@ defmodule Kontor.Accounts.Mailbox do
     mailbox
     |> cast(attrs, [:tenant_id, :user_id, :provider, :email_address, :himalaya_config,
                     :polling_interval_seconds, :task_age_cutoff_months, :read_only, :copy_emails, :active,
-                    :folder_model, :folder_bootstrap_count, :folder_model_locked_at])
+                    :folder_model, :folder_bootstrap_count, :folder_model_locked_at, :folder_creation_guard])
     |> validate_required([:tenant_id, :user_id, :provider, :email_address])
     |> validate_inclusion(:provider, [:google, :microsoft])
     |> unique_constraint(:email_address, name: :mailboxes_tenant_id_email_address_index)

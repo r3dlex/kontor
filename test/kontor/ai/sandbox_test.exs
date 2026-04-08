@@ -38,8 +38,8 @@ defmodule Kontor.AI.SandboxTest do
       end
     end
 
-    test "contains exactly 10 permitted actions" do
-      assert MapSet.size(Sandbox.allowed_actions()) == 10
+    test "contains exactly 12 permitted actions" do
+      assert MapSet.size(Sandbox.allowed_actions()) == 12
     end
   end
 

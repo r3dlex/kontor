@@ -16,6 +16,8 @@ output_schema:
   - urgency_estimate
   - tier2_skills
   - context_depth
+  - priority_score
+  - has_actionable_task
 priority: 100
 ---
 
@@ -33,8 +35,10 @@ Given:
 Produce a JSON object with:
 - `category`: one of [reply_needed, newsletter, automated_notification, meeting_request, calendar_invite, task_related, fyi_only, spam]
 - `urgency_estimate`: 0.0 to 1.0
-- `tier2_skills`: array of skill names to invoke from [scorer, thread_summarizer, task_extractor, reply_drafter, meeting_setup, calendar_reminder, folder_organizer, contact_organizer]
+- `tier2_skills`: array of skill names to invoke from [scorer, thread_summarizer, labeler, task_extractor, reply_drafter, meeting_setup, calendar_reminder, folder_organizer, contact_organizer]
 - `context_depth`: one of [none, first_100_chars, full_body] — how much email body content Tier 2 skills need
+- `priority_score` (integer, 0-100): estimated priority derived from headers only. High (70+) = urgent/important signals in subject/sender. Medium (30-69) = normal. Low (0-29) = newsletter/automated/spam.
+- `has_actionable_task` (boolean): true if subject line suggests a required action (contains words like "please", "action required", "FYI", deadline words, or question marks directed at the user)
 
 ## Routing rules
 
@@ -52,4 +56,4 @@ Produce a JSON object with:
 Respond with only valid JSON. No explanation. No markdown code blocks.
 
 Example:
-{"category":"reply_needed","urgency_estimate":0.8,"tier2_skills":["scorer","thread_summarizer","task_extractor","reply_drafter","contact_organizer"],"context_depth":"full_body"}
+{"category":"reply_needed","urgency_estimate":0.8,"tier2_skills":["scorer","thread_summarizer","labeler","task_extractor","reply_drafter","contact_organizer"],"context_depth":"full_body","priority_score":72,"has_actionable_task":true}

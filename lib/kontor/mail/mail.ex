@@ -3,7 +3,7 @@ defmodule Kontor.Mail do
 
   import Ecto.Query
   alias Kontor.Repo
-  alias Kontor.Mail.{Email, Thread, ScheduledSend}
+  alias Kontor.Mail.{Email, Thread, ScheduledSend, EmailLabel, SenderRule, FolderCorrection, NewsletterEngagement, FolderSuggestion}
 
   require Logger
 
@@ -170,6 +170,145 @@ defmodule Kontor.Mail do
       where: t.tenant_id == ^tenant_id and t.markdown_stale == true,
       order_by: [asc: t.updated_at],
       limit: ^limit
+    )
+  end
+
+  # --- Folder Organization ---
+
+  def record_folder_correction(attrs, tenant_id) do
+    attrs = Map.merge(attrs, %{
+      tenant_id: tenant_id,
+      recorded_at: DateTime.utc_now() |> DateTime.truncate(:second)
+    })
+    result = %FolderCorrection{}
+    |> FolderCorrection.changeset(attrs)
+    |> Repo.insert()
+
+    case result do
+      {:ok, correction} ->
+        maybe_promote_sender_rule(attrs[:sender], attrs[:mailbox_id], attrs[:to_folder], tenant_id)
+        {:ok, correction}
+      error -> error
+    end
+  end
+
+  defp maybe_promote_sender_rule(nil, _mailbox_id, _folder, _tenant_id), do: :ok
+  defp maybe_promote_sender_rule(sender, mailbox_id, folder, tenant_id) do
+    count = Repo.aggregate(
+      from(fc in FolderCorrection,
+        where: fc.mailbox_id == ^mailbox_id and fc.sender == ^sender and fc.to_folder == ^folder),
+      :count, :id
+    )
+
+    if count >= 3 do
+      upsert_sender_rule(%{
+        tenant_id: tenant_id,
+        mailbox_id: mailbox_id,
+        sender_pattern: sender,
+        rule_type: "folder_override",
+        rule_data: %{"folder" => folder},
+        confidence: "confident",
+        correction_count: count,
+        source: "user_correction",
+        active: true
+      }, tenant_id)
+    else
+      :ok
+    end
+  end
+
+  def get_sender_rules(mailbox_id, tenant_id) do
+    Repo.all(from sr in SenderRule,
+      where: sr.mailbox_id == ^mailbox_id and sr.tenant_id == ^tenant_id and sr.active == true)
+  end
+
+  def upsert_email_labels(attrs, tenant_id) do
+    attrs = Map.put(attrs, :tenant_id, tenant_id)
+    attrs = Map.put_new(attrs, :inserted_at, DateTime.utc_now() |> DateTime.truncate(:second))
+
+    %EmailLabel{}
+    |> EmailLabel.changeset(attrs)
+    |> Repo.insert(
+      on_conflict: {:replace, [:labels, :priority_score, :has_actionable_task,
+                                :task_summary, :task_deadline, :ai_confidence, :ai_reasoning]},
+      conflict_target: :email_id
+    )
+  end
+
+  def upsert_sender_rule(attrs, _tenant_id) do
+    changeset = %SenderRule{} |> SenderRule.changeset(attrs)
+
+    Repo.insert(changeset,
+      on_conflict: {:replace, [:rule_type, :rule_data, :confidence, :correction_count,
+                                :source, :active, :updated_at]},
+      conflict_target: [:tenant_id, :mailbox_id, :sender_pattern]
+    )
+  end
+
+  def create_folder_suggestion(attrs, tenant_id) do
+    attrs = Map.merge(attrs, %{
+      tenant_id: tenant_id,
+      inserted_at: DateTime.utc_now() |> DateTime.truncate(:second)
+    })
+
+    %FolderSuggestion{}
+    |> FolderSuggestion.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  def get_email_labels(email_id, tenant_id) do
+    Repo.get_by(EmailLabel, email_id: email_id, tenant_id: tenant_id)
+  end
+
+  def update_newsletter_engagement(mailbox_id, sender_domain, tenant_id, opts \\ []) do
+    read? = Keyword.get(opts, :read, false)
+
+    existing = Repo.get_by(NewsletterEngagement,
+      mailbox_id: mailbox_id, sender_domain: sender_domain)
+
+    new_consecutive = if read?, do: 0, else: (existing && existing.consecutive_unread || 0) + 1
+    auto_archive = new_consecutive >= 2
+
+    attrs = %{
+      tenant_id: tenant_id,
+      mailbox_id: mailbox_id,
+      sender_domain: sender_domain,
+      consecutive_unread: new_consecutive,
+      last_received_at: DateTime.utc_now() |> DateTime.truncate(:second),
+      auto_archive: auto_archive
+    }
+
+    changeset = %NewsletterEngagement{} |> NewsletterEngagement.changeset(attrs)
+
+    Repo.insert(changeset,
+      on_conflict: {:replace, [:consecutive_unread, :last_received_at, :auto_archive, :updated_at]},
+      conflict_target: [:mailbox_id, :sender_domain]
+    )
+  end
+
+  def active_folder_count(mailbox_id, tenant_id) do
+    cutoff = DateTime.add(DateTime.utc_now(), -30 * 24 * 3600, :second)
+
+    Repo.aggregate(
+      from(fs in FolderSuggestion,
+        where: fs.mailbox_id == ^mailbox_id and fs.tenant_id == ^tenant_id
+               and fs.inserted_at > ^cutoff
+               and not is_nil(fs.suggested_folder),
+        select: fs.suggested_folder,
+        distinct: true),
+      :count
+    )
+  end
+
+  def weekly_folder_volume(mailbox_id, folder_name, tenant_id) do
+    cutoff = DateTime.add(DateTime.utc_now(), -7 * 24 * 3600, :second)
+
+    Repo.aggregate(
+      from(fs in FolderSuggestion,
+        where: fs.mailbox_id == ^mailbox_id and fs.tenant_id == ^tenant_id
+               and fs.suggested_folder == ^folder_name
+               and fs.inserted_at > ^cutoff),
+      :count, :id
     )
   end
 

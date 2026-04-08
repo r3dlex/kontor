@@ -21,7 +21,9 @@ defmodule Kontor.AI.Sandbox do
     :manage_skill,
     :create_task,
     :update_task,
-    :manage_folder
+    :manage_folder,
+    :apply_labels,
+    :update_sender_rule
   ])
 
   def start_link(opts) do
@@ -129,6 +131,43 @@ defmodule Kontor.AI.Sandbox do
 
   defp do_execute(:manage_folder, params, tenant_id) do
     Kontor.Mail.manage_folder(params, tenant_id)
+  end
+
+  defp do_execute(:apply_labels, params, tenant_id) do
+    email_id = Map.get(params, "email_id") || Map.get(params, :email_id)
+    labels = Map.get(params, "labels", [])
+    priority_score = Map.get(params, "priority_score")
+
+    attrs = %{
+      email_id: email_id,
+      labels: labels,
+      priority_score: priority_score,
+      has_actionable_task: Map.get(params, "has_actionable_task", false),
+      task_summary: Map.get(params, "task_summary"),
+      inserted_at: DateTime.utc_now() |> DateTime.truncate(:second)
+    }
+
+    case Kontor.Mail.Mail.upsert_email_labels(attrs, tenant_id) do
+      {:ok, label} -> {:ok, %{applied: true, email_label_id: label.id}}
+      {:error, changeset} -> {:error, changeset}
+    end
+  end
+
+  defp do_execute(:update_sender_rule, params, tenant_id) do
+    mailbox_id = Map.get(params, "mailbox_id") || Map.get(params, :mailbox_id)
+
+    attrs = %{
+      tenant_id: tenant_id,
+      mailbox_id: mailbox_id,
+      sender_pattern: Map.get(params, "sender_pattern"),
+      rule_type: Map.get(params, "rule_type", "folder_override"),
+      rule_data: Map.get(params, "rule_data", %{}),
+      confidence: Map.get(params, "confidence", "tentative"),
+      source: "system_detected",
+      active: true
+    }
+
+    Kontor.Mail.Mail.upsert_sender_rule(attrs, tenant_id)
   end
 
   defp log_execution(state, action, params, tenant_id, result) do

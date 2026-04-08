@@ -66,7 +66,7 @@ defmodule Kontor.AI.Pipeline do
       {:error, _} ->
         Logger.warning("Pipeline: classifier not found, using passthrough")
         {:ok, %{
-          "tier2_skills" => ["scorer", "thread_summarizer"],
+          "tier2_skills" => ["scorer", "thread_summarizer", "labeler"],
           "urgency_estimate" => 0.5,
           "category" => "unknown",
           "context_depth" => "full_body"
@@ -130,7 +130,7 @@ defmodule Kontor.AI.Pipeline do
   end
 
   # Post-process tier2 results: persist tasks, thread markdown, scores
-  defp post_process(email, _tier1, tier2, tenant_id) do
+  defp post_process(email, tier1, tier2, tenant_id) do
     try do
       # Thread summarizer → update thread markdown
       if summary = Map.get(tier2, "thread_summarizer") do
@@ -164,6 +164,16 @@ defmodule Kontor.AI.Pipeline do
         end)
       end
 
+      # Folder organizer → create folder suggestion
+      if folder_result = Map.get(tier2, "folder_organizer") do
+        maybe_handle_folder_organizer(folder_result, email, tier1, tenant_id)
+      end
+
+      # Labeler → upsert email labels
+      if label_result = Map.get(tier2, "labeler") do
+        maybe_handle_labeler(label_result, email, tenant_id)
+      end
+
       # Reply drafter → store draft content in task if it exists
       if _draft = Map.get(tier2, "reply_drafter"), do: :ok
 
@@ -189,6 +199,59 @@ defmodule Kontor.AI.Pipeline do
         Logger.error("Pipeline post_process failed for email #{email.id}: #{inspect(e)}")
         # Body remains intact; markdown_stale stays true for MarkdownBackfillWorker retry
         :ok
+    end
+  end
+
+  defp maybe_handle_folder_organizer(%{"folder_action" => folder_action} = _result, email, tier1, tenant_id)
+      when not is_nil(folder_action) do
+    action = Map.get(folder_action, "action")
+    bootstrap_blocked = Map.get(folder_action, "bootstrap_blocked", false)
+    confidence = Map.get(folder_action, "confidence", 0.0)
+
+    target_folder = Map.get(folder_action, "target_folder") ||
+                    get_in(folder_action, ["folder_action", "target_folder"])
+
+    if action == "move" and not bootstrap_blocked and confidence >= 0.80 and not is_nil(target_folder) do
+      suggestion_attrs = %{
+        tenant_id: email.tenant_id,
+        email_id: email.id,
+        mailbox_id: email.mailbox_id,
+        email_message_id: email.message_id,
+        suggested_folder: target_folder,
+        create_if_missing: Map.get(folder_action, "create_if_missing", false),
+        confidence: confidence,
+        reasoning: Map.get(folder_action, "reason"),
+        labels: Map.get(tier1, "labels", []),
+        priority_score: Map.get(tier1, "priority_score")
+      }
+      Kontor.Mail.Mail.create_folder_suggestion(suggestion_attrs, tenant_id)
+    else
+      {:ok, :skipped}
+    end
+  end
+  defp maybe_handle_folder_organizer(_result, _email, _tier1, _tenant_id), do: {:ok, :skipped}
+
+  defp maybe_handle_labeler(%{"labels" => _} = result, email, tenant_id) do
+    label_attrs = %{
+      email_id: email.id,
+      labels: Map.get(result, "labels", []),
+      priority_score: Map.get(result, "priority_score"),
+      has_actionable_task: Map.get(result, "has_actionable_task", false),
+      task_summary: Map.get(result, "task_summary"),
+      task_deadline: parse_deadline(Map.get(result, "task_deadline")),
+      ai_confidence: Map.get(result, "ai_confidence"),
+      ai_reasoning: Map.get(result, "ai_reasoning"),
+      inserted_at: DateTime.utc_now() |> DateTime.truncate(:second)
+    }
+    Kontor.Mail.Mail.upsert_email_labels(label_attrs, tenant_id)
+  end
+  defp maybe_handle_labeler(_result, _email, _tenant_id), do: {:ok, :skipped}
+
+  defp parse_deadline(nil), do: nil
+  defp parse_deadline(str) when is_binary(str) do
+    case DateTime.from_iso8601(str) do
+      {:ok, dt, _} -> dt |> DateTime.truncate(:second)
+      _ -> nil
     end
   end
 

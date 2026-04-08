@@ -79,5 +79,8 @@ defmodule KontorWeb.Router do
     get "/search", SearchController, :index
 
     post "/mcp/token", McpTokenController, :create
+
+    post "/mailboxes/:mailbox_id/folder_corrections", FolderCorrectionController, :create
+    get "/emails/:email_id/labels", EmailLabelController, :show
   end
 end
