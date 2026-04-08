@@ -79,6 +79,10 @@ defmodule Kontor.Mail.Poller do
       {:ok, %Email{id: _id} = email} ->
         # New email: upsert thread to ensure it exists with markdown_stale = true
         upsert_thread(email, tenant_id)
+        Repo.update_all(
+          from(m in Kontor.Accounts.Mailbox, where: m.id == ^mailbox.id),
+          inc: [folder_bootstrap_count: 1]
+        )
         Kontor.AI.Pipeline.process_email(email, task_age_cutoff_months: mailbox.task_age_cutoff_months || 3)
         Task.start(fn -> fetch_and_upsert_thread_siblings(email, mailbox, tenant_id) end)
         Kontor.Contacts.OrganizationWorker.process_email_contacts(email, tenant_id)

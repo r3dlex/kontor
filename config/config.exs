@@ -23,7 +23,8 @@ config :kontor, Oban,
     Oban.Plugins.Pruner,
     {Oban.Plugins.Cron,
      crontab: [
-       {"*/5 * * * *", Kontor.Mail.MarkdownBackfillWorker}
+       {"*/5 * * * *", Kontor.Mail.MarkdownBackfillWorker},
+       {"0 23 * * *", Kontor.Mail.FolderOrganizerWorker}
      ]}
   ],
   queues: [
@@ -34,7 +35,8 @@ config :kontor, Oban,
     calendar_sync: 2,
     contact_sync: 2,
     asana_sync: 1,
-    markdown_backfill: 2
+    markdown_backfill: 2,
+    folder_organizer: 2
   ]
 
 config :kontor, :mcp,

@@ -109,6 +109,10 @@ defmodule Kontor.Mail.Importer do
       {:ok, %Email{id: _id} = email} ->
         # New email: upsert thread so MarkdownBackfillWorker finds it
         upsert_thread(email, tenant_id)
+        Repo.update_all(
+          from(m in Kontor.Accounts.Mailbox, where: m.id == ^mailbox.id),
+          inc: [folder_bootstrap_count: 1]
+        )
         {:ok, email}
 
       error ->

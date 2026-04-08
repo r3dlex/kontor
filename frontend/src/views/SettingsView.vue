@@ -27,6 +27,22 @@
               <option :value="12">1 year</option>
             </select>
           </label>
+          <label>
+            Folder model
+            <span v-if="mb.folder_model_locked_at" class="folder-model-locked">
+              <span class="locked-badge">Locked</span>
+            </span>
+            <select
+              v-else
+              v-model="mb.folder_model"
+              @change="onFolderModelChange(mb)"
+            >
+              <option value="structural_category">Structural / PARA</option>
+              <option value="action_based">Action-Based</option>
+              <option value="decision">Decision (4 D's)</option>
+            </select>
+            <span class="hint">Bootstrap: {{ mb.folder_bootstrap_count ?? 0 }} / 50 emails</span>
+          </label>
         </div>
       </div>
 
@@ -81,9 +97,24 @@ async function saveMailbox(mb) {
   await api.patch(`/mailboxes/${mb.id}`, {
     mailbox: {
       polling_interval_seconds: mb.polling_interval_seconds,
-      task_age_cutoff_months: mb.task_age_cutoff_months
+      task_age_cutoff_months: mb.task_age_cutoff_months,
+      folder_model: mb.folder_model
     }
   })
+}
+
+function onFolderModelChange(mb) {
+  const confirmed = window.confirm(
+    'This organizational model cannot be changed once email processing begins. Are you sure?'
+  )
+  if (confirmed) {
+    saveMailbox(mb)
+  } else {
+    // revert to previous value by re-fetching mailboxes
+    api.get('/mailboxes').then(({ data }) => {
+      mailboxes.value = data.mailboxes
+    })
+  }
 }
 
 async function savePrefs() {
@@ -145,6 +176,21 @@ h3 { font-size: 14px; font-weight: 600; color: #e8e8e8; margin-bottom: 16px; }
   color: #ccc;
   padding: 4px 8px;
   font-size: 12px;
+}
+
+.folder-model-locked {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.locked-badge {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #2a1a1a;
+  color: #f87171;
+  border: 1px solid #4a2020;
 }
 
 .add-mailbox { display: flex; gap: 8px; margin-top: 12px; }

@@ -23,4 +23,6 @@ config :kontor, :microsoft_client, Kontor.Auth.MicrosoftMock
 config :kontor, :accounts_module, Kontor.Accounts.Mock
 
 config :kontor, :skills_path,
-  shared: System.tmp_dir!()
+  shared: "priv/skills/shared"
+
+config :kontor, :skills, sync_to_fs: false

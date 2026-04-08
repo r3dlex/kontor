@@ -62,6 +62,8 @@ defmodule Kontor.AI.SkillLoaderTest do
   describe "sync_skill_to_fs/1" do
     test "writes skill content to filesystem and is then loadable" do
       unique_name = "test_sync_skill_#{System.unique_integer([:positive])}"
+      skills_path = Application.get_env(:kontor, :skills_path)[:shared] || "priv/skills/shared"
+      on_exit(fn -> File.rm(Path.join(skills_path, "#{unique_name}.md")) end)
 
       skill = insert(:skill,
         name: unique_name,
@@ -80,6 +82,8 @@ defmodule Kontor.AI.SkillLoaderTest do
 
     test "overwrites existing file with updated content" do
       unique_name = "test_overwrite_skill_#{System.unique_integer([:positive])}"
+      skills_path = Application.get_env(:kontor, :skills_path)[:shared] || "priv/skills/shared"
+      on_exit(fn -> File.rm(Path.join(skills_path, "#{unique_name}.md")) end)
 
       skill = insert(:skill,
         name: unique_name,

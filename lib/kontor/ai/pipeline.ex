@@ -13,6 +13,7 @@ defmodule Kontor.AI.Pipeline do
 
   use GenServer
   require Logger
+  import Ecto.Query
 
   alias Kontor.AI.{SkillLoader, MinimaxClient}
   alias Kontor.Repo
@@ -86,7 +87,8 @@ defmodule Kontor.AI.Pipeline do
     results =
       skill_names
       |> Enum.map(fn name ->
-        {name, Task.async(fn -> run_one_tier2(name, email, context_depth, tenant_id) end)}
+        extra = build_folder_extra_context(name, email)
+        {name, Task.async(fn -> run_one_tier2(name, email, context_depth, tenant_id, extra) end)}
       end)
       |> Enum.map(fn {name, task} -> {name, Task.await(task, 60_000)} end)
       |> Enum.filter(fn {_name, result} -> match?({:ok, _}, result) end)
@@ -95,12 +97,25 @@ defmodule Kontor.AI.Pipeline do
     {:ok, results}
   end
 
-  defp run_one_tier2(name, email, context_depth, tenant_id) do
+  defp build_folder_extra_context("folder_organizer", email) do
+    case Repo.get(Kontor.Accounts.Mailbox, email.mailbox_id) do
+      nil -> %{}
+      mailbox ->
+        %{
+          "folder_model" => mailbox.folder_model || "structural_category",
+          "folder_bootstrap_count" => mailbox.folder_bootstrap_count || 0,
+          "available_folders" => []
+        }
+    end
+  end
+  defp build_folder_extra_context(_name, _email), do: %{}
+
+  defp run_one_tier2(name, email, context_depth, tenant_id, extra_context \\ %{}) do
     namespace = "shared"
 
     case SkillLoader.load_skill(name, namespace) do
       {:ok, skill} ->
-        input = build_email_input(email, context_depth)
+        input = build_email_input(email, context_depth, extra_context)
         case MinimaxClient.complete(build_prompt(skill, input), tenant_id) do
           {:ok, result} ->
             fire_webhook(skill, result, tenant_id)
@@ -187,7 +202,11 @@ defmodule Kontor.AI.Pipeline do
   end
   defp fire_webhook(_skill, _result, _tenant_id), do: :ok
 
-  defp build_email_input(email, "headers_only") do
+  defp build_email_input(email, context_depth, extra_context \\ %{}) do
+    build_email_input_base(email, context_depth) |> Map.merge(extra_context)
+  end
+
+  defp build_email_input_base(email, "headers_only") do
     %{
       subject: email.subject,
       sender: email.sender,
@@ -196,7 +215,7 @@ defmodule Kontor.AI.Pipeline do
     }
   end
 
-  defp build_email_input(email, "first_100_chars") do
+  defp build_email_input_base(email, "first_100_chars") do
     %{
       subject: email.subject,
       sender: email.sender,
@@ -206,7 +225,7 @@ defmodule Kontor.AI.Pipeline do
     }
   end
 
-  defp build_email_input(email, _full) do
+  defp build_email_input_base(email, _full) do
     %{
       subject: email.subject,
       sender: email.sender,
