@@ -32,19 +32,12 @@ defmodule Kontor.Mail.PollerIngestionTest do
 
   describe "fetch_new_emails/2 — newest-first sort" do
     test "Poller.fetch_new_emails/2 requests emails sorted date:desc" do
-      {:module, _} = Code.ensure_loaded(Kontor.Mail.Poller)
+      source = File.read!("lib/kontor/mail/poller.ex")
 
-      poller_beam = :code.which(Kontor.Mail.Poller)
-
-      {:ok, {_, [{:abstract_code, {_, forms}}]}} =
-        :beam_lib.chunks(poller_beam, [:abstract_code])
-
-      source_str = :erl_prettypr.format(:erl_syntax.form_list(forms)) |> List.to_string()
-
-      assert String.contains?(source_str, "date:desc"),
+      assert String.contains?(source, "date:desc"),
              "Expected Kontor.Mail.Poller to call HimalayaClient.list_emails " <>
                "with sort argument \"date:desc\", but the literal was not found " <>
-               "in the compiled module. If the sort was changed, update the " <>
+               "in the source file. If the sort was changed, update the " <>
                "Poller and this test together."
     end
   end
