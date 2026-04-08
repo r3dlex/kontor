@@ -90,7 +90,7 @@ src-tauri/             # Tauri desktop wrapper
 #### 4. Thread Markdown System
 - **Per-thread document**: Persistent markdown accumulation
 - **Lossy compression**: On new email, load existing markdown + new email + 1-5 random prior emails (coherence sampling) → LLM updates markdown
-- **Raw preservation**: All emails always in PostgreSQL; markdown is lossy working document
+- **Body lifecycle**: Email bodies inserted at import, conditionally discarded after AI processing (per mailbox.copy_emails setting); markdown is the primary working document
 - **Embeddings**: pgvector for semantic search across threads
 
 #### 5. AI Sandbox
@@ -168,7 +168,7 @@ Each thread gets a persistent markdown document. On new email arrival:
 2. Load new email
 3. Load 1-5 random prior thread emails (coherence sampling)
 4. LLM updates markdown
-5. Raw emails always preserved in PostgreSQL
+5. Email bodies conditionally discarded after AI processing (retained when mailbox.copy_emails = true)
 6. Markdown is lossy working document for AI-driven UX
 
 ## Contact Intelligence
@@ -352,7 +352,7 @@ mix ecto.migrate
 # Start Phoenix server
 mix phx.server
 ```
-Server runs on `http://localhost:4000`
+Server runs on `http://localhost:4737`
 
 ### Frontend Setup
 ```bash

@@ -19,7 +19,14 @@ config :kontor, Kontor.Repo,
 
 config :kontor, Oban,
   repo: Kontor.Repo,
-  plugins: [Oban.Plugins.Pruner],
+  plugins: [
+    Oban.Plugins.Pruner,
+    {Oban.Plugins.Cron,
+     crontab: [
+       {"*/5 * * * *", Kontor.Mail.MarkdownBackfillWorker},
+       {"0 23 * * *", Kontor.Mail.FolderOrganizerWorker}
+     ]}
+  ],
   queues: [
     default: 5,
     mail_import: 3,
@@ -27,7 +34,9 @@ config :kontor, Oban,
     ai_processing: 5,
     calendar_sync: 2,
     contact_sync: 2,
-    asana_sync: 1
+    asana_sync: 1,
+    markdown_backfill: 2,
+    folder_organizer: 2
   ]
 
 config :kontor, :mcp,

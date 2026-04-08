@@ -28,8 +28,10 @@ defmodule Kontor.AI.Skills do
     |> Skill.changeset(attrs)
     |> Repo.insert()
     |> tap_ok(fn skill ->
-      SkillLoader.sync_skill_to_fs(skill)
-      SkillLoader.regenerate_classifier(tenant_id)
+      if Application.get_env(:kontor, :skills, [])[:sync_to_fs] != false do
+        SkillLoader.sync_skill_to_fs(skill)
+        SkillLoader.regenerate_classifier(tenant_id)
+      end
     end)
   end
 
@@ -46,7 +48,9 @@ defmodule Kontor.AI.Skills do
     |> Repo.update()
     |> tap_ok(fn updated ->
       save_version(old_version)
-      SkillLoader.sync_skill_to_fs(updated)
+      if Application.get_env(:kontor, :skills, [])[:sync_to_fs] != false do
+        SkillLoader.sync_skill_to_fs(updated)
+      end
     end)
   end
 

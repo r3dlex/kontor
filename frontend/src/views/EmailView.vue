@@ -17,7 +17,8 @@
 
     <div class="email-body">
       <div class="section-label">Email</div>
-      <pre class="body-text">{{ email.body }}</pre>
+      <pre v-if="email.body" class="body-text">{{ email.body }}</pre>
+      <p v-else class="body-null">Body not stored — email content was used for AI processing but not retained.</p>
     </div>
   </div>
   <div v-else-if="loading" class="loading">Loading...</div>
@@ -117,4 +118,6 @@ h2 { font-size: 18px; font-weight: 600; color: #fff; margin-bottom: 8px; }
 }
 
 .loading { color: #555; font-size: 14px; padding: 40px; text-align: center; }
+
+.body-null { font-size: 13px; color: #555; font-style: italic; margin: 0; }
 </style>

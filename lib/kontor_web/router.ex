@@ -28,6 +28,7 @@ defmodule KontorWeb.Router do
     post "/mailboxes", MailboxController, :create
     get "/mailboxes/:id", MailboxController, :show
     put "/mailboxes/:id", MailboxController, :update
+    patch "/mailboxes/:id", MailboxController, :update
     delete "/mailboxes/:id", MailboxController, :delete
 
     get "/emails/:id", EmailController, :show

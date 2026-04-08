@@ -3,6 +3,11 @@ defmodule Kontor.Mail.Importer do
   use GenServer
   require Logger
 
+  import Ecto.Query
+
+  alias Kontor.Mail.{Email, Thread}
+  alias Kontor.Repo
+
   @rate_limit_ms 200  # 5 emails/second default
 
   def start_link(opts) do
@@ -41,7 +46,7 @@ defmodule Kontor.Mail.Importer do
   end
 
   defp run_import(mailbox_id, tenant_id, opts) do
-    mailbox = Kontor.Repo.get(Kontor.Accounts.Mailbox, mailbox_id)
+    mailbox = Repo.get(Kontor.Accounts.Mailbox, mailbox_id)
     months = Keyword.get(opts, :months, mailbox.task_age_cutoff_months || 3)
     cutoff = DateTime.add(DateTime.utc_now(), -months * 30 * 86_400)
 
@@ -91,10 +96,42 @@ defmodule Kontor.Mail.Importer do
       received_at: parse_dt(raw_email["date"])
     }
 
-    Kontor.Repo.insert(
-      Kontor.Mail.Email.changeset(%Kontor.Mail.Email{}, attrs),
+    case Repo.insert(
+      Email.changeset(%Email{}, attrs),
       on_conflict: :nothing,
       conflict_target: [:tenant_id, :message_id]
+    ) do
+      {:ok, %Email{id: nil}} ->
+        # Duplicate: fetch existing for reference but do not trigger pipeline
+        existing = Repo.get_by(Email, tenant_id: tenant_id, message_id: attrs.message_id)
+        {:ok, existing}
+
+      {:ok, %Email{id: _id} = email} ->
+        # New email: upsert thread so MarkdownBackfillWorker finds it
+        upsert_thread(email, tenant_id)
+        Repo.update_all(
+          from(m in Kontor.Accounts.Mailbox, where: m.id == ^mailbox.id),
+          inc: [folder_bootstrap_count: 1]
+        )
+        {:ok, email}
+
+      error ->
+        error
+    end
+  end
+
+  defp upsert_thread(email, tenant_id) do
+    thread_attrs = %{
+      tenant_id: tenant_id,
+      thread_id: email.thread_id,
+      markdown_stale: true,
+      last_updated: DateTime.utc_now() |> DateTime.truncate(:second)
+    }
+
+    Repo.insert(
+      Thread.changeset(%Thread{}, thread_attrs),
+      on_conflict: [set: [markdown_stale: true]],
+      conflict_target: [:tenant_id, :thread_id]
     )
   end
 

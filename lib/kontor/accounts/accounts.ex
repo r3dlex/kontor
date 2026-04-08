@@ -3,7 +3,7 @@ defmodule Kontor.Accounts do
 
   import Ecto.Query
   alias Kontor.Repo
-  alias Kontor.Accounts.{User, Mailbox, Credential}
+  alias Kontor.Accounts.{User, Mailbox, Credential, Preferences}
 
   # --- Users ---
 
@@ -165,6 +165,30 @@ defmodule Kontor.Accounts do
       nil -> {:error, :no_credential}
       cred ->
         {:ok, Kontor.Vault.decrypt!(cred.access_token_encrypted)}
+    end
+  end
+
+  # --- Preferences ---
+
+  def get_preferences(tenant_id) do
+    case Repo.get_by(Preferences, tenant_id: tenant_id) do
+      nil -> {:error, :not_found}
+      prefs -> {:ok, prefs}
+    end
+  end
+
+  def upsert_preferences(tenant_id, attrs) do
+    attrs = stringify_keys(attrs) |> Map.put("tenant_id", tenant_id)
+
+    case Repo.get_by(Preferences, tenant_id: tenant_id) do
+      nil ->
+        %Preferences{}
+        |> Preferences.changeset(attrs)
+        |> Repo.insert()
+      prefs ->
+        prefs
+        |> Preferences.changeset(attrs)
+        |> Repo.update()
     end
   end
 

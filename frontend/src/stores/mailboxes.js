@@ -44,6 +44,18 @@ export const useMailboxesStore = defineStore('mailboxes', {
         this.error = err.response?.data?.error || 'Failed to create mailbox'
         return { success: false, error: this.error }
       }
+    },
+
+    async updateMailbox(id, attrs) {
+      try {
+        const { data } = await api.patch(`/mailboxes/${id}`, attrs)
+        const idx = this.mailboxes.findIndex(m => m.id === id)
+        if (idx !== -1) this.mailboxes[idx] = data.mailbox
+        return { success: true, mailbox: data.mailbox }
+      } catch (err) {
+        this.error = err.response?.data?.error || 'Failed to update mailbox'
+        return { success: false, error: this.error }
+      }
     }
   }
 })

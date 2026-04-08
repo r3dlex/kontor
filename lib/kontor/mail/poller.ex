@@ -3,6 +3,11 @@ defmodule Kontor.Mail.Poller do
   use GenServer
   require Logger
 
+  import Ecto.Query
+
+  alias Kontor.Mail.{Email, Thread}
+  alias Kontor.Repo
+
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
@@ -22,8 +27,7 @@ defmodule Kontor.Mail.Poller do
   end
 
   defp poll_all_mailboxes(last_seen) do
-    import Ecto.Query
-    mailboxes = Kontor.Repo.all(from m in Kontor.Accounts.Mailbox, where: m.active == true)
+    mailboxes = Repo.all(from m in Kontor.Accounts.Mailbox, where: m.active == true)
 
     Enum.reduce(mailboxes, last_seen, fn mailbox, acc ->
       case fetch_new_emails(mailbox, acc[mailbox.id]) do
@@ -38,15 +42,17 @@ defmodule Kontor.Mail.Poller do
   end
 
   defp fetch_new_emails(mailbox, _cursor) do
-    case Kontor.MCP.HimalayaClient.list_emails(mailbox.himalaya_config, "INBOX", 20) do
+    case Kontor.MCP.HimalayaClient.list_emails(mailbox.himalaya_config, "INBOX", 20, "date:desc") do
       {:ok, emails} -> {:ok, emails, DateTime.utc_now()}
       error -> error
     end
   end
 
   defp process_email(raw_email, mailbox) do
+    tenant_id = mailbox.tenant_id
+
     attrs = %{
-      tenant_id: mailbox.tenant_id,
+      tenant_id: tenant_id,
       mailbox_id: mailbox.id,
       message_id: raw_email["id"],
       thread_id: raw_email["thread_id"],
@@ -57,13 +63,48 @@ defmodule Kontor.Mail.Poller do
       received_at: parse_dt(raw_email["date"])
     }
 
-    case Kontor.Repo.insert(Kontor.Mail.Email.changeset(%Kontor.Mail.Email{}, attrs),
+    case Repo.insert(Email.changeset(%Email{}, attrs),
            on_conflict: :nothing, conflict_target: [:tenant_id, :message_id]) do
-      {:ok, email} ->
-        Kontor.AI.Pipeline.process_email(email)
-        Kontor.Contacts.OrganizationWorker.process_email_contacts(email, mailbox.tenant_id)
-      _ -> :ok
+      {:ok, %Email{id: nil}} ->
+        # Duplicate: fetch existing email; only call pipeline if thread is stale
+        existing = Repo.get_by(Email, tenant_id: tenant_id, message_id: attrs.message_id)
+        if existing do
+          thread = existing.thread_id && Repo.get_by(Thread, thread_id: existing.thread_id, tenant_id: tenant_id)
+          if thread && thread.markdown_stale do
+            Kontor.AI.Pipeline.process_email(existing, task_age_cutoff_months: mailbox.task_age_cutoff_months || 3)
+          end
+          Kontor.Contacts.OrganizationWorker.process_email_contacts(existing, tenant_id)
+        end
+
+      {:ok, %Email{id: _id} = email} ->
+        # New email: upsert thread to ensure it exists with markdown_stale = true
+        upsert_thread(email, tenant_id)
+        Repo.update_all(
+          from(m in Kontor.Accounts.Mailbox, where: m.id == ^mailbox.id),
+          inc: [folder_bootstrap_count: 1]
+        )
+        Kontor.AI.Pipeline.process_email(email, task_age_cutoff_months: mailbox.task_age_cutoff_months || 3)
+        Task.start(fn -> fetch_and_upsert_thread_siblings(email, mailbox, tenant_id) end)
+        Kontor.Contacts.OrganizationWorker.process_email_contacts(email, tenant_id)
+
+      _ ->
+        :ok
     end
+  end
+
+  defp upsert_thread(email, tenant_id) do
+    thread_attrs = %{
+      tenant_id: tenant_id,
+      thread_id: email.thread_id,
+      markdown_stale: true,
+      last_updated: DateTime.utc_now() |> DateTime.truncate(:second)
+    }
+
+    Repo.insert(
+      Thread.changeset(%Thread{}, thread_attrs),
+      on_conflict: [set: [markdown_stale: true]],
+      conflict_target: [:tenant_id, :thread_id]
+    )
   end
 
   defp parse_dt(nil), do: DateTime.utc_now() |> DateTime.truncate(:second)
@@ -71,6 +112,37 @@ defmodule Kontor.Mail.Poller do
     case DateTime.from_iso8601(str) do
       {:ok, dt, _} -> DateTime.truncate(dt, :second)
       _ -> DateTime.utc_now() |> DateTime.truncate(:second)
+    end
+  end
+
+  defp fetch_and_upsert_thread_siblings(email, mailbox, tenant_id) do
+    if is_nil(email.thread_id) do
+      {:ok, :skipped}
+    else
+      case Kontor.MCP.HimalayaClient.list_emails(mailbox.himalaya_config, "INBOX", 50, "date:desc") do
+        {:ok, raw_emails} ->
+          siblings = Enum.filter(raw_emails, fn e ->
+            e["thread_id"] == email.thread_id && e["message_id"] != email.message_id
+          end)
+          Enum.each(siblings, fn raw ->
+            attrs = %{
+              tenant_id: tenant_id,
+              mailbox_id: mailbox.id,
+              message_id: raw["message_id"],
+              thread_id: raw["thread_id"],
+              subject: raw["subject"],
+              sender: raw["from"],
+              recipients: raw["to"],
+              body: raw["body"],
+              received_at: parse_dt(raw["date"])
+            }
+            Repo.insert(Email.changeset(%Email{}, attrs), on_conflict: :nothing)
+          end)
+          {:ok, length(siblings)}
+        {:error, reason} ->
+          Logger.warning("fetch_and_upsert_thread_siblings failed: #{inspect(reason)}")
+          {:error, reason}
+      end
     end
   end
 
