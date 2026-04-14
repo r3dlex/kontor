@@ -20,7 +20,7 @@
           <div class="attendees">{{ event.attendees?.slice(0, 3).join(', ') }}<span v-if="event.attendees?.length > 3"> +{{ event.attendees.length - 3 }}</span></div>
         </div>
         <div class="event-provider">
-          <span :class="['provider-badge', event.provider]">{{ event.provider }}</span>
+          <Tag :value="event.provider" :severity="event.provider === 'google' ? 'success' : 'info'" class="provider-badge" />
         </div>
       </div>
     </div>
@@ -31,6 +31,7 @@
 import { ref, onMounted } from 'vue'
 import { calendarApi } from '@/api'
 import { useChatStore } from '@/stores/chat'
+import Tag from 'primevue/tag'
 
 const events = ref([])
 const loading = ref(true)
@@ -88,16 +89,7 @@ h3 { font-size: 15px; font-weight: 500; color: #e8e8e8; margin-bottom: 4px; }
 .location { font-size: 12px; color: #666; margin-bottom: 4px; }
 .attendees { font-size: 12px; color: #555; }
 
-.provider-badge {
-  font-size: 10px;
-  padding: 2px 8px;
-  border-radius: 4px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.provider-badge.google { background: #1a3a1a; color: #86efac; }
-.provider-badge.microsoft { background: #1a2a3a; color: #7dd3fc; }
+.event-provider { display: flex; align-items: center; }
 
 .loading, .empty { color: #555; font-size: 14px; padding: 40px; text-align: center; }
 </style>

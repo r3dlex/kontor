@@ -1,7 +1,7 @@
 <template>
   <div class="email-view" v-if="email">
     <div class="header">
-      <button class="back" @click="$router.back()">← Back</button>
+      <Button label="← Back" text severity="secondary" @click="$router.back()" class="back" />
     </div>
 
     <div class="email-meta">
@@ -29,6 +29,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { emailsApi } from '@/api'
 import { useChatStore } from '@/stores/chat'
+import Button from 'primevue/button'
 
 const route = useRoute()
 const email = ref(null)

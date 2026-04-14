@@ -28,19 +28,19 @@
         <div class="briefing-section">
           <div v-if="event.briefing_markdown" class="briefing-content" v-html="renderMarkdown(event.briefing_markdown)" />
           <div v-else class="no-briefing">
-            <button @click="refreshBriefing(event.id)" :disabled="refreshing[event.id]">
-              {{ refreshing[event.id] ? 'Generating...' : 'Generate Briefing' }}
-            </button>
+            <Button @click="refreshBriefing(event.id)" :disabled="refreshing[event.id]" :label="refreshing[event.id] ? 'Generating...' : 'Generate Briefing'" size="small" />
           </div>
 
-          <button
+          <Button
             v-if="event.briefing_markdown"
             @click="refreshBriefing(event.id)"
-            class="refresh-btn"
             :disabled="refreshing[event.id]"
-          >
-            {{ refreshing[event.id] ? 'Refreshing...' : 'Refresh' }}
-          </button>
+            :label="refreshing[event.id] ? 'Refreshing...' : 'Refresh'"
+            size="small"
+            severity="secondary"
+            text
+            class="refresh-btn"
+          />
         </div>
       </div>
     </div>
@@ -51,6 +51,7 @@
 import { ref, onMounted } from 'vue'
 import { backOfficeApi, calendarApi } from '@/api'
 import { useChatStore } from '@/stores/chat'
+import Button from 'primevue/button'
 
 const events = ref([])
 const loading = ref(true)
@@ -167,23 +168,9 @@ h3 { font-size: 16px; font-weight: 600; color: #fff; margin-bottom: 8px; }
 
 .no-briefing { display: flex; justify-content: center; padding: 16px; }
 
-button {
-  background: #1a2a3a;
-  color: #7dd3fc;
-  border: 1px solid #2d4a6a;
-  border-radius: 6px;
-  padding: 8px 16px;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-button:disabled { opacity: 0.5; cursor: default; }
-
 .refresh-btn {
   margin-top: 12px;
-  background: transparent;
   color: #555;
-  border-color: #333;
   font-size: 12px;
   padding: 4px 12px;
 }

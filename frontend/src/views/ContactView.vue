@@ -1,10 +1,8 @@
 <template>
   <div class="contact-view" v-if="contact">
     <div class="header">
-      <button class="back" @click="$router.back()">← Back</button>
-      <button @click="refresh" :disabled="refreshing" class="refresh-btn">
-        {{ refreshing ? 'Refreshing...' : 'Refresh Profile' }}
-      </button>
+      <Button label="← Back" text severity="secondary" @click="$router.back()" class="back" />
+      <Button @click="refresh" :disabled="refreshing" :label="refreshing ? 'Refreshing...' : 'Refresh Profile'" size="small" class="refresh-btn" />
     </div>
 
     <div class="contact-hero">
@@ -30,6 +28,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { contactsApi } from '@/api'
 import { useChatStore } from '@/stores/chat'
+import Button from 'primevue/button'
 
 const route = useRoute()
 const contact = ref(null)
@@ -75,17 +74,6 @@ function renderMarkdown(md) {
 .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
 
 .back { background: transparent; border: none; color: #666; font-size: 14px; cursor: pointer; }
-.back:hover { color: #fff; }
-
-.refresh-btn {
-  background: #1a2a3a;
-  color: #7dd3fc;
-  border: 1px solid #2d4a6a;
-  border-radius: 6px;
-  padding: 8px 16px;
-  font-size: 13px;
-  cursor: pointer;
-}
 
 .contact-hero {
   display: flex;

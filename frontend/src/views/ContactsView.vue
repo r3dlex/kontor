@@ -3,8 +3,8 @@
     <div class="header">
       <h2>Contacts</h2>
       <div class="view-toggle">
-        <button :class="{ active: view === 'list' }" @click="view = 'list'">List</button>
-        <button :class="{ active: view === 'graph' }" @click="switchToGraph">Graph</button>
+        <Button :label="'List'" :class="{ 'p-button-outlined': view !== 'list' }" size="small" @click="view = 'list'" />
+        <Button :label="'Graph'" :class="{ 'p-button-outlined': view !== 'graph' }" size="small" @click="switchToGraph" />
       </div>
     </div>
 
@@ -34,9 +34,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted } from 'vue'
 import { contactsApi } from '@/api'
 import { useChatStore } from '@/stores/chat'
+import Button from 'primevue/button'
 
 const contacts = ref([])
 const view = ref('list')
@@ -120,18 +121,6 @@ function ringStyle(weight) {
 h2 { font-size: 20px; font-weight: 600; color: #fff; }
 
 .view-toggle { display: flex; gap: 4px; }
-
-.view-toggle button {
-  padding: 6px 14px;
-  border-radius: 6px;
-  border: 1px solid #333;
-  background: transparent;
-  color: #666;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.view-toggle button.active { background: #1f1f1f; color: #fff; border-color: #444; }
 
 .contact-list { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; }
 

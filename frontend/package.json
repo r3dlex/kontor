@@ -1,6 +1,6 @@
 {
   "name": "kontor-frontend",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,6 +12,8 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@primevue/themes": "^4.5.4",
+    "@tailwindcss/vite": "^4.2.2",
     "@tiptap/core": "^2.2.0",
     "@tiptap/extension-placeholder": "^2.2.0",
     "@tiptap/starter-kit": "^2.2.0",
@@ -19,6 +21,8 @@
     "axios": "^1.6.0",
     "phoenix": "^1.7.0",
     "pinia": "^2.1.7",
+    "primevue": "^4.5.5",
+    "tailwindcss": "^4.2.2",
     "vis-network": "^9.1.9",
     "vue": "^3.4.0",
     "vue-router": "^4.2.5"

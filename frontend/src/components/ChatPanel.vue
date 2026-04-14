@@ -27,7 +27,7 @@
         rows="1"
         ref="inputEl"
       />
-      <button @click="send" :disabled="!input.trim() || chat.isTyping">Send</button>
+      <Button @click="send" :disabled="!input.trim() || chat.isTyping" label="Send" />
     </div>
   </div>
 </template>
@@ -35,6 +35,7 @@
 <script setup>
 import { ref, watch, nextTick } from 'vue'
 import { useChatStore } from '@/stores/chat'
+import Button from 'primevue/button'
 
 const chat = useChatStore()
 const input = ref('')
@@ -49,7 +50,6 @@ async function send() {
 }
 
 function formatMessage(content) {
-  // Basic markdown-like formatting
   return content
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -163,21 +163,5 @@ watch(() => chat.messages.length, async () => {
 .chat-input textarea:focus {
   outline: none;
   border-color: #444;
-}
-
-.chat-input button {
-  background: #1a3a5c;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 10px 16px;
-  font-size: 13px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.chat-input button:disabled {
-  opacity: 0.4;
-  cursor: default;
 }
 </style>
