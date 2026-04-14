@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+/* Kontor Brand Tokens — mapped to PrimeVue Aura dark preset */
+:root {
+  --color-gold: #d4a574;
+  --color-navy: #1a1a2e;
+  --color-navy-deep: #0d0d1a;
+  --color-surface: #141414;
+  --color-border: #2a2a2a;
+  --color-text: #e0e0e0;
+  --color-text-muted: #888888;
+  --color-primary: #60a5fa;
+  --color-secondary: #a78bfa;
+}
+
+/* PrimeVue unstyled mode compatibility */
+.p-component {
+  font-family: inherit;
+}

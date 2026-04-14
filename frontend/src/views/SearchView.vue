@@ -5,16 +5,13 @@
     </div>
 
     <div class="search-bar">
-      <input
+      <InputText
         v-model="searchStore.query"
-        type="text"
         placeholder="Search threads..."
         class="search-input"
         @keydown.enter="handleSearch"
       />
-      <button class="search-btn" @click="handleSearch" :disabled="searchStore.loading">
-        {{ searchStore.loading ? 'Searching...' : 'Search' }}
-      </button>
+      <Button @click="handleSearch" :disabled="searchStore.loading" :label="searchStore.loading ? 'Searching...' : 'Search'" class="search-btn" />
     </div>
 
     <div v-if="searchStore.loading" class="loading">Searching...</div>
@@ -42,6 +39,8 @@
 <script setup>
 import { ref } from 'vue'
 import { useSearchStore } from '@/stores/search'
+import InputText from 'primevue/inputtext'
+import Button from 'primevue/button'
 
 const searchStore = useSearchStore()
 const searched = ref(false)
@@ -80,20 +79,6 @@ h2 { font-size: 20px; font-weight: 600; color: #fff; }
 
 .search-input:focus { border-color: #444; }
 .search-input::placeholder { color: #555; }
-
-.search-btn {
-  padding: 10px 20px;
-  background: #1a3a5c;
-  color: #7dd3fc;
-  border: 1px solid #2d5a8c;
-  border-radius: 8px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: opacity 0.15s;
-}
-
-.search-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.search-btn:hover:not(:disabled) { opacity: 0.85; }
 
 .results { display: flex; flex-direction: column; gap: 8px; }
 

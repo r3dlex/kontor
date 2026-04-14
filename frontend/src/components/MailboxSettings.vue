@@ -7,18 +7,11 @@
         <span class="label-text">Store full email bodies</span>
         <span class="label-hint">When disabled, email bodies are used for AI processing then discarded to save storage.</span>
       </label>
-      <input
-        id="copy-emails-toggle"
-        type="checkbox"
-        class="toggle"
-        v-model="copyEmails"
-      />
+      <Checkbox v-model="copyEmails" inputId="copy-emails-toggle" :binary="true" />
     </div>
 
     <div class="actions">
-      <button class="save-btn" :disabled="saving" @click="save">
-        {{ saving ? 'Saving...' : 'Save' }}
-      </button>
+      <Button :label="saving ? 'Saving...' : 'Save'" :disabled="saving" @click="save" class="save-btn" />
       <span v-if="saveError" class="save-error">{{ saveError }}</span>
       <span v-if="saveSuccess" class="save-success">Saved.</span>
     </div>
@@ -28,6 +21,8 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { useMailboxesStore } from '@/stores/mailboxes'
+import Checkbox from 'primevue/checkbox'
+import Button from 'primevue/button'
 
 const props = defineProps({
   mailbox: {
@@ -105,11 +100,6 @@ async function save() {
   line-height: 1.5;
 }
 
-.toggle {
-  margin-top: 2px;
-  cursor: pointer;
-}
-
 .actions {
   display: flex;
   align-items: center;
@@ -128,11 +118,6 @@ async function save() {
 
 .save-btn:hover:not(:disabled) {
   background: #333;
-}
-
-.save-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .save-error {

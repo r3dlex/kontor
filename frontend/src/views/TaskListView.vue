@@ -3,12 +3,15 @@
     <div class="header">
       <h2>Tasks</h2>
       <div class="filters">
-        <button
+        <Button
           v-for="s in statuses"
           :key="s.value"
-          :class="['filter-btn', { active: activeStatus === s.value }]"
+          :label="s.label"
+          :class="['filter-btn', { 'p-button-outlined': activeStatus !== s.value, 'p-button-text': activeStatus === s.value, 'active': activeStatus === s.value }]"
+          :severity="activeStatus === s.value ? 'primary' : 'secondary'"
+          size="small"
           @click="setStatus(s.value)"
-        >{{ s.label }}</button>
+        />
       </div>
     </div>
 
@@ -42,21 +45,31 @@
         </div>
 
         <div class="task-actions">
-          <button
+          <Button
             v-if="task.status === 'created'"
+            label="Confirm"
+            size="small"
+            severity="info"
             @click="taskStore.confirmTask(task.id)"
             class="btn-confirm"
-          >Confirm</button>
-          <button
+          />
+          <Button
             v-if="['confirmed', 'in_progress'].includes(task.status)"
+            label="Done"
+            size="small"
+            severity="success"
             @click="taskStore.markDone(task.id)"
             class="btn-done"
-          >Done</button>
-          <button
+          />
+          <Button
             v-if="!['done', 'dismissed'].includes(task.status)"
+            label="Dismiss"
+            size="small"
+            severity="secondary"
+            text
             @click="taskStore.dismissTask(task.id)"
             class="btn-dismiss"
-          >Dismiss</button>
+          />
         </div>
       </div>
     </div>
@@ -67,6 +80,7 @@
 import { ref, onMounted } from 'vue'
 import { useTaskStore } from '@/stores/tasks'
 import { useChatStore } from '@/stores/chat'
+import Button from 'primevue/button'
 
 const taskStore = useTaskStore()
 const chat = useChatStore()
@@ -111,21 +125,10 @@ h2 { font-size: 20px; font-weight: 600; color: #fff; }
 
 .filters { display: flex; gap: 6px; }
 
-.filter-btn {
+.task-list :deep(.filter-btn) {
   padding: 6px 14px;
   border-radius: 20px;
-  border: 1px solid #333;
-  background: transparent;
-  color: #888;
   font-size: 13px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.filter-btn.active, .filter-btn:hover {
-  background: #1f1f1f;
-  color: #fff;
-  border-color: #444;
 }
 
 .tasks { display: flex; flex-direction: column; gap: 8px; }
@@ -180,19 +183,6 @@ p { font-size: 13px; color: #777; margin-bottom: 8px; line-height: 1.4; }
 .deadline { color: #e87c3e; }
 
 .task-actions { display: flex; gap: 6px; flex-shrink: 0; }
-
-.task-actions button {
-  padding: 6px 12px;
-  border-radius: 6px;
-  border: 1px solid;
-  font-size: 12px;
-  cursor: pointer;
-  transition: opacity 0.15s;
-}
-
-.btn-confirm { background: #1a3a5c; color: #7dd3fc; border-color: #2d5a8c; }
-.btn-done { background: #1a3a1a; color: #86efac; border-color: #2d5c2d; }
-.btn-dismiss { background: transparent; color: #555; border-color: #333; }
 
 .loading, .empty { color: #555; font-size: 14px; padding: 40px; text-align: center; }
 </style>

@@ -1,14 +1,13 @@
 <template>
   <div class="import-progress">
-    <div class="progress-bar">
-      <div class="progress-fill" :style="{ width: percent + '%' }" />
-    </div>
+    <ProgressBar :value="percent" :showValue="false" class="progress-bar" />
     <span class="progress-text">Processing {{ progress.current }} of {{ progress.total }}</span>
   </div>
 </template>
 
 <script setup>
 import { computed } from 'vue'
+import ProgressBar from 'primevue/progressbar'
 
 const props = defineProps({
   progress: { type: Object, required: true }
@@ -29,16 +28,13 @@ const percent = computed(() =>
 
 .progress-bar {
   height: 3px;
-  background: #2a2a2a;
   border-radius: 2px;
-  overflow: hidden;
   margin-bottom: 6px;
+  background: #2a2a2a;
 }
 
-.progress-fill {
-  height: 100%;
+.progress-bar :deep(.p-progressbar-value) {
   background: #3b82f6;
-  transition: width 0.3s ease;
 }
 
 .progress-text {

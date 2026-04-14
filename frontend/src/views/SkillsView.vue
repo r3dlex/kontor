@@ -30,12 +30,14 @@
             <span>{{ skill.author }}</span>
           </div>
           <div class="skill-actions" @click.stop>
-            <button
+            <Button
               @click="toggleActive(skill)"
+              :label="skill.active ? 'Deactivate' : 'Activate'"
+              size="small"
+              :severity="skill.active ? 'secondary' : 'success'"
+              text
               :class="skill.active ? 'btn-deactivate' : 'btn-activate'"
-            >
-              {{ skill.active ? 'Deactivate' : 'Activate' }}
-            </button>
+            />
           </div>
         </div>
       </div>
@@ -71,15 +73,14 @@
         <div v-if="activeTab === 'content'" class="tab-pane">
           <div v-if="loadingContent" class="loading">Loading content...</div>
           <template v-else>
-            <textarea
+            <Textarea
               class="content-textarea"
               rows="20"
               v-model="editableContent"
-            ></textarea>
+              autoResize
+            />
             <div class="editor-actions">
-              <button class="btn-save" :disabled="saving" @click="saveContent">
-                {{ saving ? 'Saving...' : 'Save' }}
-              </button>
+              <Button class="btn-save" :disabled="saving" @click="saveContent" :label="saving ? 'Saving...' : 'Save'" />
               <span v-if="saveError" class="save-error">{{ saveError }}</span>
               <span v-if="saveSuccess" class="save-success">Saved.</span>
             </div>
@@ -107,20 +108,20 @@
               </div>
             </div>
             <div v-if="selectedVersion" class="version-preview">
-              <textarea
+              <Textarea
                 class="content-textarea readonly"
                 rows="16"
                 readonly
-                :value="selectedVersion.content"
-              ></textarea>
+                :modelValue="selectedVersion.content"
+                autoResize
+              />
               <div class="editor-actions">
-                <button
+                <Button
                   class="btn-save"
                   :disabled="reverting"
                   @click="revertToVersion(selectedVersion)"
-                >
-                  {{ reverting ? 'Reverting...' : 'Revert to this version' }}
-                </button>
+                  :label="reverting ? 'Reverting...' : 'Revert to this version'"
+                />
                 <span v-if="revertError" class="save-error">{{ revertError }}</span>
               </div>
             </div>
@@ -139,6 +140,8 @@
 import { ref, onMounted } from 'vue'
 import { skillsApi } from '@/api'
 import { useChatStore } from '@/stores/chat'
+import Button from 'primevue/button'
+import Textarea from 'primevue/textarea'
 
 const skills = ref([])
 const loading = ref(true)
@@ -320,18 +323,6 @@ h2 { font-size: 20px; font-weight: 600; color: #fff; }
 
 .skill-actions { margin-top: 4px; }
 
-.skill-actions button {
-  font-size: 12px;
-  padding: 5px 12px;
-  border-radius: 6px;
-  border: 1px solid;
-  cursor: pointer;
-  transition: opacity 0.15s;
-}
-
-.btn-deactivate { background: transparent; color: #555; border-color: #333; }
-.btn-activate { background: #1a3a1a; color: #86efac; border-color: #2d5c2d; }
-
 /* Right panel */
 .skill-editor {
   background: #141414;
@@ -414,11 +405,7 @@ h2 { font-size: 20px; font-weight: 600; color: #fff; }
   padding: 7px 18px;
   font-size: 13px;
   cursor: pointer;
-  transition: opacity 0.15s;
 }
-
-.btn-save:hover:not(:disabled) { opacity: 0.85; }
-.btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .save-error { font-size: 12px; color: #f87171; }
 .save-success { font-size: 12px; color: #86efac; }

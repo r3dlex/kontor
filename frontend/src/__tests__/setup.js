@@ -1,4 +1,6 @@
 import { vi } from 'vitest'
+import PrimeVue from 'primevue/config'
+import Aura from '@primeuix/themes/aura'
 
 // Node 22+ provides a native --localstorage-file based localStorage that
 // may be incomplete. Override with a full in-memory implementation.
@@ -13,3 +15,15 @@ const localStorageMock = {
 }
 
 vi.stubGlobal('localStorage', localStorageMock)
+
+// Install PrimeVue globally for all tests with unstyled mode to avoid
+// CSS conflicts in jsdom environment
+export function installPrimeVue(app) {
+  app.use(PrimeVue, {
+    unstyled: true,
+    theme: {
+      preset: Aura,
+      options: { darkModeSelector: '.dark' }
+    }
+  })
+}

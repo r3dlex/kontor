@@ -12,35 +12,25 @@
         <div class="mailbox-config">
           <label>
             Polling
-            <select v-model="mb.polling_interval_seconds" @change="saveMailbox(mb)">
-              <option :value="30">30s</option>
-              <option :value="60">1 min</option>
-              <option :value="300">5 min</option>
-            </select>
+            <Select v-model="mb.polling_interval_seconds" @change="saveMailbox(mb)" :options="pollingOptions" optionLabel="label" optionValue="value" />
           </label>
           <label>
             Task cutoff
-            <select v-model="mb.task_age_cutoff_months" @change="saveMailbox(mb)">
-              <option :value="1">1 month</option>
-              <option :value="3">3 months</option>
-              <option :value="6">6 months</option>
-              <option :value="12">1 year</option>
-            </select>
+            <Select v-model="mb.task_age_cutoff_months" @change="saveMailbox(mb)" :options="cutoffOptions" optionLabel="label" optionValue="value" />
           </label>
           <label>
             Folder model
             <span v-if="mb.folder_model_locked_at" class="folder-model-locked">
               <span class="locked-badge">Locked</span>
             </span>
-            <select
+            <Select
               v-else
               v-model="mb.folder_model"
               @change="onFolderModelChange(mb)"
-            >
-              <option value="structural_category">Structural / PARA</option>
-              <option value="action_based">Action-Based</option>
-              <option value="decision">Decision (4 D's)</option>
-            </select>
+              :options="folderModelOptions"
+              optionLabel="label"
+              optionValue="value"
+            />
             <span class="hint">Bootstrap: {{ mb.folder_bootstrap_count ?? 0 }} / 50 emails</span>
           </label>
         </div>
@@ -56,22 +46,22 @@
       <h3>AI Thresholds</h3>
       <label class="field">
         Auto-confirm threshold (high)
-        <input type="number" v-model.number="prefs.auto_confirm_high" min="0" max="1" step="0.05" />
+        <InputNumber v-model="prefs.auto_confirm_high" :min="0" :max="1" :step="0.05" :maxFractionDigits="2" />
         <span class="hint">Tasks above this confidence auto-confirm and sync to Asana</span>
       </label>
       <label class="field">
         Surface threshold (low)
-        <input type="number" v-model.number="prefs.auto_confirm_low" min="0" max="1" step="0.05" />
+        <InputNumber v-model="prefs.auto_confirm_low" :min="0" :max="1" :step="0.05" :maxFractionDigits="2" />
         <span class="hint">Tasks above this threshold appear in Review section</span>
       </label>
-      <button @click="savePrefs" class="btn-save">Save</button>
+      <Button @click="savePrefs" label="Save" class="btn-save" />
     </section>
 
     <section class="section">
       <h3>Appearance</h3>
       <label class="field">
         Font size
-        <input type="number" v-model.number="prefs.font_size" min="12" max="20" />
+        <InputNumber v-model="prefs.font_size" :min="12" :max="20" />
       </label>
     </section>
   </div>
@@ -80,6 +70,9 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import api from '@/api'
+import Select from 'primevue/select'
+import InputNumber from 'primevue/inputnumber'
+import Button from 'primevue/button'
 
 const mailboxes = ref([])
 const prefs = ref({
@@ -87,6 +80,25 @@ const prefs = ref({
   auto_confirm_low: 0.5,
   font_size: 14
 })
+
+const pollingOptions = [
+  { label: '30s', value: 30 },
+  { label: '1 min', value: 60 },
+  { label: '5 min', value: 300 }
+]
+
+const cutoffOptions = [
+  { label: '1 month', value: 1 },
+  { label: '3 months', value: 3 },
+  { label: '6 months', value: 6 },
+  { label: '1 year', value: 12 }
+]
+
+const folderModelOptions = [
+  { label: 'Structural / PARA', value: 'structural_category' },
+  { label: 'Action-Based', value: 'action_based' },
+  { label: 'Decision (4 D\'s)', value: 'decision' }
+]
 
 onMounted(async () => {
   const { data } = await api.get('/mailboxes')
@@ -110,7 +122,6 @@ function onFolderModelChange(mb) {
   if (confirmed) {
     saveMailbox(mb)
   } else {
-    // revert to previous value by re-fetching mailboxes
     api.get('/mailboxes').then(({ data }) => {
       mailboxes.value = data.mailboxes
     })
@@ -135,7 +146,7 @@ h2 { font-size: 20px; font-weight: 600; color: #fff; margin-bottom: 28px; }
   margin-bottom: 16px;
 }
 
-h3 { font-size: 14px; font-weight: 600; color: #e8e8e8; margin-bottom: 16px; }
+h3 { font-size: 14px; font-weight: 600; color: #e8e0e0; margin-bottom: 16px; }
 
 .mailbox-row {
   display: flex;
@@ -169,12 +180,12 @@ h3 { font-size: 14px; font-weight: 600; color: #e8e8e8; margin-bottom: 16px; }
   gap: 4px;
 }
 
-.mailbox-config select {
+.mailbox-config :deep(.p-select),
+.mailbox-config :deep(.p-selectlabel) {
   background: #1f1f1f;
   border: 1px solid #333;
   border-radius: 4px;
   color: #ccc;
-  padding: 4px 8px;
   font-size: 12px;
 }
 
@@ -214,7 +225,7 @@ h3 { font-size: 14px; font-weight: 600; color: #e8e8e8; margin-bottom: 16px; }
   margin-bottom: 14px;
 }
 
-.field input {
+.field :deep(.p-inputnumber-input) {
   background: #1f1f1f;
   border: 1px solid #333;
   border-radius: 6px;
@@ -225,14 +236,4 @@ h3 { font-size: 14px; font-weight: 600; color: #e8e8e8; margin-bottom: 16px; }
 }
 
 .hint { font-size: 11px; color: #555; }
-
-.btn-save {
-  background: #1a3a5c;
-  color: #7dd3fc;
-  border: 1px solid #2d5a8c;
-  border-radius: 6px;
-  padding: 8px 20px;
-  font-size: 13px;
-  cursor: pointer;
-}
 </style>

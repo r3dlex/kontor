@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="kg" x1="60" y1="40" x2="460" y2="480" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#60a5fa"/>
+      <stop offset="100%" stop-color="#a78bfa"/>
+    </linearGradient>
+  </defs>
+  <text x="256" y="386" font-family="'Arial Black','Helvetica Neue',Arial,sans-serif" font-size="360" font-weight="900" fill="url(#kg)" text-anchor="middle">K</text>
+</svg>
