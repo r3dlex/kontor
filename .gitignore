@@ -10,7 +10,8 @@ erl_crash.dump
 .elixir_ls/
 
 # OMC state
-.omc/
+.omc/*
+!.omc/plans/
 
 # Generated / artifacts
 test-results/

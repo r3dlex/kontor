@@ -39,12 +39,19 @@ lib/kontor/
 ├── contacts/          # Contact profiles, relationship graph
 ├── chat/              # Persistent chat sessions
 ├── auth/              # OAuth token management
-└── monitoring.ex      # Logging and telemetry
+├── documents/         # Document management
+├── automations/       # n8n webhook automation
+├── search/            # Full-text and semantic search
+├── application.ex
+├── cache.ex
+├── repo.ex
+└── vault.ex
 
 lib/kontor_web/
 ├── router.ex          # Route definitions
 ├── controllers/       # REST handlers
-└── channels/          # WebSocket channels (chat, notifications, tasks, contacts)
+├── channels/          # WebSocket channels (chat, notifications, tasks, contacts)
+└── plugs/             # Plug middleware (authenticate_tenant)
 
 priv/skills/shared/    # Default skill markdown files (classifier, scorer, summarizer, etc.)
 priv/skills/{mailbox}/ # Mailbox-specific skill overrides
@@ -55,9 +62,12 @@ frontend/              # Vue 3 SPA
 ├── src/
 │   ├── components/
 │   ├── views/
-│   ├── store/         # Pinia stores
-│   └── main.ts
-└── vite.config.ts
+│   ├── stores/        # Pinia stores
+│   ├── layouts/
+│   ├── router/
+│   ├── api/
+│   └── main.js
+└── vite.config.js
 
 src-tauri/             # Tauri desktop wrapper
 ```
@@ -245,7 +255,10 @@ All tables include `tenant_id` for multi-tenant support:
 Kontor.Application
 ├── Kontor.Repo
 ├── Kontor.Vault (encrypted key storage)
+├── Phoenix.PubSub
 ├── KontorWeb.Endpoint
+├── Kontor.Cache (ETS tables for performance)
+├── {Oban, ...} (job queue for background workers)
 ├── Kontor.MCP.Supervisor
 │   ├── HimalayaClient per mailbox
 │   ├── AsanaClient
@@ -254,7 +267,7 @@ Kontor.Application
 ├── Kontor.Mail.Supervisor
 │   ├── Poller per mailbox (IMAP idle, periodic fetch)
 │   ├── Importer (processes new emails)
-│   └── ScheduledSender (Oban job queue)
+│   └── ScheduledSender
 ├── Kontor.AI.Supervisor
 │   ├── Sandbox (allowlist validator)
 │   ├── SkillLoader (filesystem sync, hot reload)
@@ -270,8 +283,7 @@ Kontor.Application
 ├── Kontor.Contacts.Supervisor
 │   ├── OrganizationWorker (org chart sync)
 │   └── RelationshipGraphWorker (Vis.js network data)
-├── Kontor.Auth.TokenRefresher (timer-based OAuth refresh)
-└── Kontor.Cache (ETS tables for performance)
+└── Kontor.Auth.TokenRefresher (timer-based OAuth refresh)
 ```
 
 ## API Contract
@@ -334,7 +346,7 @@ Kontor.Application
 ## Development Setup
 
 ### Prerequisites
-- Elixir 1.14+, Erlang/OTP 25+
+- Elixir 1.17+, Erlang/OTP 25+
 - Node.js 18+
 - PostgreSQL 15+
 - Tauri CLI
